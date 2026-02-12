@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VCO INFINITY 2026 - Driver Schedule</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --petrosian: #00E5FF;
+            --khoroshavin: #D946FF;
+            --bahriy: #FF5522;
+            --kyshkan: #96FF14;
+            --sova: #FFF000;
+            --bg-primary: #0D0D0D;
+            --bg-secondary: #151515;
+            --bg-tertiary: #1A1A1A;
+            --border-subtle: rgba(255, 255, 255, 0.06);
+            --border-medium: rgba(255, 255, 255, 0.1);
+            --text-primary: #FFFFFF;
+            --text-secondary: #A0A0A0;
+            --text-tertiary: #6B6B6B;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 60px 40px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .header {
+            margin-bottom: 80px;
+            border-bottom: 1px solid var(--border-subtle);
+            padding-bottom: 40px;
+        }
+
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            margin-bottom: 16px;
+        }
+
+        .season-label {
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 2px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .timezone-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-medium);
+            border-radius: 2px;
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .timezone-toggle:hover {
+            background: var(--bg-secondary);
+            border-color: var(--text-secondary);
+        }
+
+        .timezone-toggle:active {
+            transform: scale(0.98);
+        }
+
+        .timezone-icon {
+            font-size: 16px;
+        }
+
+        .timezone-text {
+            text-transform: uppercase;
+        }
+
+        .title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 56px;
+            font-weight: 700;
+            letter-spacing: -1px;
+            color: var(--text-primary);
+        }
+
+        .subtitle {
+            display: none;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 60px;
+        }
+
+        .timeline-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 2px;
+            padding: 40px;
+            overflow-x: hidden;
+            width: 100%;
+        }
+
+        .section-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-bottom: 32px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .section-title-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-title-left::before {
+            content: '';
+            width: 3px;
+            height: 14px;
+            background: var(--text-primary);
+        }
+
+        .view-mode-toggle {
+            display: flex;
+            gap: 8px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 2px;
+            padding: 4px;
+        }
+
+        .view-mode-btn {
+            padding: 6px 12px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-family: 'Inter', sans-serif;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-radius: 1px;
+        }
+
+        .view-mode-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .view-mode-btn.active {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .group-label {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-tertiary);
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .group-label::before {
+            content: '';
+            width: 2px;
+            height: 10px;
+            background: var(--text-secondary);
+        }
+
+        .timeline-grid {
+            display: grid;
+            grid-template-columns: repeat(24, minmax(0, 1fr));
+            gap: 0;
+            overflow-x: visible;
+            padding-bottom: 20px;
+            width: 100%;
+        }
+
+        .timeline-grid::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .timeline-grid::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+        }
+
+        .timeline-grid::-webkit-scrollbar-thumb {
+            background: var(--border-medium);
+        }
+
+        .race-number {
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-tertiary);
+            border-bottom: 1px solid var(--border-subtle);
+            letter-spacing: 0.3px;
+        }
+
+        .driver-label {
+            display: none;
+        }
+
+        .timeline-cell {
+            height: 60px;
+            border-bottom: 1px solid var(--border-subtle);
+            border-right: 1px solid var(--border-subtle);
+            position: relative;
+            transition: background 0.2s ease;
+        }
+
+        .timeline-cell:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .race-pill {
+            position: absolute;
+            top: 12px;
+            left: 6px;
+            right: 6px;
+            bottom: 12px;
+            border-radius: 0;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 600;
+            text-align: center;
+            line-height: 1.3;
+            letter-spacing: 0.3px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            opacity: 0;
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .race-pill:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+
+        .petrosian-race { 
+            background: var(--petrosian);
+        }
+
+        .khoroshavin-race { 
+            background: var(--khoroshavin);
+        }
+
+        .bahriy-race { 
+            background: var(--bahriy);
+        }
+
+        .kyshkan-race { 
+            background: var(--kyshkan);
+        }
+
+        .sova-race { 
+            background: var(--sova);
+        }
+
+        .driver-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .driver-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 2px;
+            padding: 0;
+            transition: all 0.2s ease;
+            overflow: hidden;
+        }
+
+        .driver-card:hover {
+            border-color: var(--border-medium);
+        }
+
+        .driver-card-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .driver-badge {
+            width: 6px;
+            height: 40px;
+            border-radius: 1px;
+        }
+
+        .petrosian-card .driver-badge { background: var(--petrosian); }
+        .khoroshavin-card .driver-badge { background: var(--khoroshavin); }
+        .bahriy-card .driver-badge { background: var(--bahriy); }
+        .kyshkan-card .driver-badge { background: var(--kyshkan); }
+        .sova-card .driver-badge { background: var(--sova); }
+
+        .driver-info {
+            flex: 1;
+        }
+
+        .driver-name {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .driver-races-count {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            font-weight: 400;
+        }
+
+        .race-list {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .race-item {
+            display: grid;
+            grid-template-columns: 60px 1fr 140px;
+            align-items: center;
+            gap: 16px;
+            padding: 14px 24px;
+            font-size: 12px;
+            border-bottom: 1px solid var(--border-subtle);
+            transition: background 0.15s ease;
+        }
+
+        .race-item:last-child {
+            border-bottom: none;
+        }
+
+        .race-item:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .race-num {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 11px;
+            color: var(--text-tertiary);
+            letter-spacing: 0.5px;
+        }
+
+        .car-name {
+            font-weight: 500;
+            color: var(--text-primary);
+            letter-spacing: 0.2px;
+        }
+
+        .track-name {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            text-align: right;
+            font-weight: 400;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 60px;
+            padding-top: 40px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .logo-text {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--text-primary);
+        }
+
+        .legend-item {
+            display: none;
+        }
+
+        .driver-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 30px 20px;
+            }
+
+            .header {
+                margin-bottom: 40px;
+                padding-bottom: 24px;
+            }
+
+            .title {
+                font-size: 32px;
+            }
+
+            .season-label {
+                font-size: 11px;
+            }
+
+            .main-content {
+                gap: 30px;
+            }
+
+            .timeline-section {
+                padding: 20px;
+                border-radius: 2px;
+            }
+
+            .section-title {
+                font-size: 12px;
+                margin-bottom: 20px;
+            }
+
+            .section-title::before {
+                height: 12px;
+            }
+
+            .timeline-grid {
+                grid-template-columns: repeat(24, minmax(0, 1fr));
+            }
+
+            .race-number {
+                height: 36px;
+                font-size: 10px;
+            }
+
+            .timeline-cell {
+                height: 48px;
+            }
+
+            .race-pill {
+                font-size: 7.5px;
+                padding: 3px;
+                top: 10px;
+                bottom: 10px;
+            }
+
+            .race-pill span:first-child {
+                margin-bottom: 1px;
+            }
+
+            .driver-cards {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .driver-card-header {
+                padding: 16px 18px;
+            }
+
+            .driver-badge {
+                height: 36px;
+            }
+
+            .driver-name {
+                font-size: 14px;
+            }
+
+            .driver-races-count {
+                font-size: 11px;
+            }
+
+            .race-item {
+                grid-template-columns: 52px 1fr 100px;
+                padding: 11px 18px;
+                gap: 12px;
+            }
+
+            .race-num {
+                font-size: 10px;
+            }
+
+            .car-name {
+                font-size: 11px;
+            }
+
+            .track-name {
+                font-size: 10px;
+            }
+
+            .legend {
+                margin-top: 40px;
+                padding-top: 30px;
+            }
+
+            .logo-text {
+                font-size: 20px;
+                letter-spacing: 2px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 20px 12px;
+            }
+
+            .header {
+                margin-bottom: 30px;
+                padding-bottom: 20px;
+            }
+
+            .title {
+                font-size: 26px;
+            }
+
+            .season-label {
+                font-size: 10px;
+            }
+
+            .timezone-toggle {
+                padding: 6px 12px;
+                font-size: 11px;
+            }
+
+            .timezone-icon {
+                font-size: 14px;
+            }
+
+            .main-content {
+                gap: 24px;
+            }
+
+            .timeline-section {
+                padding: 16px;
+                margin: 0 -12px;
+                border-left: none;
+                border-right: none;
+                border-radius: 0;
+            }
+
+            .section-title {
+                font-size: 11px;
+                margin-bottom: 16px;
+            }
+
+            .timeline-grid {
+                grid-template-columns: repeat(24, minmax(0, 1fr));
+            }
+
+            .race-number {
+                height: 32px;
+                font-size: 9px;
+            }
+
+            .timeline-cell {
+                height: 44px;
+            }
+
+            .race-pill {
+                font-size: 7px;
+                padding: 2px;
+                left: 2px;
+                right: 2px;
+                top: 8px;
+                bottom: 8px;
+            }
+
+            .driver-card {
+                margin: 0 -12px;
+                border-left: none;
+                border-right: none;
+                border-radius: 0;
+            }
+
+            .driver-card-header {
+                padding: 14px 16px;
+            }
+
+            .driver-badge {
+                width: 5px;
+                height: 32px;
+            }
+
+            .driver-name {
+                font-size: 13px;
+            }
+
+            .driver-races-count {
+                font-size: 10px;
+            }
+
+            .race-item {
+                grid-template-columns: 48px 1fr 90px;
+                padding: 10px 16px;
+                gap: 10px;
+            }
+
+            .race-num {
+                font-size: 9px;
+            }
+
+            .car-name {
+                font-size: 10px;
+            }
+
+            .track-name {
+                font-size: 9px;
+            }
+
+            .legend {
+                margin-top: 30px;
+                padding-top: 24px;
+            }
+
+            .logo-text {
+                font-size: 18px;
+                letter-spacing: 1.5px;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .timeline-cell {
+                height: 40px;
+            }
+
+            .race-pill {
+                left: 1px;
+                right: 1px;
+                top: 6px;
+                bottom: 6px;
+                border-radius: 0;
+            }
+
+            .race-number {
+                font-size: 8px;
+                height: 28px;
+            }
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(4px);
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-medium);
+            border-radius: 2px;
+            padding: 0;
+            max-width: 420px;
+            width: 90%;
+            position: relative;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: 300;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: color 0.2s ease;
+            line-height: 1;
+            z-index: 10;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-header {
+            padding: 32px 32px 24px 32px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .modal-race-number {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 24px 32px 32px 32px;
+        }
+
+        .modal-info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .modal-info-row:last-child {
+            border-bottom: none;
+        }
+
+        .modal-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+
+        .modal-value {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-align: right;
+        }
+
+        .modal-remark-row {
+            background: rgba(255, 208, 0, 0.05);
+            padding: 14px 16px;
+            margin: 8px -16px -16px -16px;
+            border-top: 1px solid rgba(255, 208, 0, 0.15);
+        }
+
+        .modal-remark-row .modal-value {
+            color: #FFD600;
+            font-weight: 500;
+            font-size: 14px;
+            font-style: italic;
+        }
+
+        @media (max-width: 480px) {
+            .modal-content {
+                width: 95%;
+                margin: 0 12px;
+            }
+
+            .modal-header {
+                padding: 24px 24px 20px 24px;
+            }
+
+            .modal-race-number {
+                font-size: 20px;
+            }
+
+            .modal-body {
+                padding: 20px 24px 24px 24px;
+            }
+
+            .modal-info-row {
+                padding: 12px 0;
+            }
+
+            .modal-label {
+                font-size: 12px;
+            }
+
+            .modal-value {
+                font-size: 14px;
+            }
+
+            .modal-close {
+                top: 16px;
+                right: 16px;
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-top">
+                <span class="season-label">2026 Season</span>
+            </div>
+            <h1 class="title">VCO Infinity</h1>
+            <p class="subtitle">
+                24 Races <span>·</span> 5 Drivers <span>·</span> Multiple Car & Track Configurations
+            </p>
+        </div>
+
+        <div class="main-content">
+            <div class="timeline-section">
+                <h2 class="section-title">
+                    <div class="section-title-left">Race Schedule</div>
+                    <div class="view-mode-toggle">
+                        <button class="view-mode-btn active" data-view="schedule">Schedule</button>
+                        <button class="view-mode-btn" data-view="car">By Car</button>
+                        <button class="view-mode-btn" data-view="track">By Track</button>
+                    </div>
+                </h2>
+
+                <!-- Schedule View (Default) -->
+                <div id="scheduleView" class="view-container">
+                    <div class="timeline-grid">
+                        <div class="race-number">01</div>
+                        <div class="race-number">02</div>
+                        <div class="race-number">03</div>
+                        <div class="race-number">04</div>
+                        <div class="race-number">05</div>
+                        <div class="race-number">06</div>
+                        <div class="race-number">07</div>
+                        <div class="race-number">08</div>
+                        <div class="race-number">09</div>
+                        <div class="race-number">10</div>
+                        <div class="race-number">11</div>
+                        <div class="race-number">12</div>
+                        <div class="race-number">13</div>
+                        <div class="race-number">14</div>
+                        <div class="race-number">15</div>
+                        <div class="race-number">16</div>
+                        <div class="race-number">17</div>
+                        <div class="race-number">18</div>
+                        <div class="race-number">19</div>
+                        <div class="race-number">20</div>
+                        <div class="race-number">21</div>
+                        <div class="race-number">22</div>
+                        <div class="race-number">23</div>
+                        <div class="race-number">24</div>
+
+                        <div class="timeline-cell"><div class="race-pill petrosian-race" data-race="1"></div></div>
+                        <div class="timeline-cell"><div class="race-pill sova-race" data-race="2"></div></div>
+                        <div class="timeline-cell"><div class="race-pill sova-race" data-race="3"></div></div>
+                        <div class="timeline-cell"><div class="race-pill khoroshavin-race" data-race="4"></div></div>
+                        <div class="timeline-cell"><div class="race-pill kyshkan-race" data-race="5"></div></div>
+                        <div class="timeline-cell"><div class="race-pill sova-race" data-race="6"></div></div>
+                        <div class="timeline-cell"><div class="race-pill kyshkan-race" data-race="7"></div></div>
+                        <div class="timeline-cell"><div class="race-pill petrosian-race" data-race="8"></div></div>
+                        <div class="timeline-cell"><div class="race-pill kyshkan-race" data-race="9"></div></div>
+                        <div class="timeline-cell"><div class="race-pill khoroshavin-race" data-race="10"></div></div>
+                        <div class="timeline-cell"><div class="race-pill khoroshavin-race" data-race="11"></div></div>
+                        <div class="timeline-cell"><div class="race-pill kyshkan-race" data-race="12"></div></div>
+                        <div class="timeline-cell"><div class="race-pill bahriy-race" data-race="13"></div></div>
+                        <div class="timeline-cell"><div class="race-pill petrosian-race" data-race="14"></div></div>
+                        <div class="timeline-cell"><div class="race-pill khoroshavin-race" data-race="15"></div></div>
+                        <div class="timeline-cell"><div class="race-pill sova-race" data-race="16"></div></div>
+                        <div class="timeline-cell"><div class="race-pill petrosian-race" data-race="17"></div></div>
+                        <div class="timeline-cell"><div class="race-pill bahriy-race" data-race="18"></div></div>
+                        <div class="timeline-cell"><div class="race-pill petrosian-race" data-race="19"></div></div>
+                        <div class="timeline-cell"><div class="race-pill sova-race" data-race="20"></div></div>
+                        <div class="timeline-cell"><div class="race-pill bahriy-race" data-race="21"></div></div>
+                        <div class="timeline-cell"><div class="race-pill petrosian-race" data-race="22"></div></div>
+                        <div class="timeline-cell"><div class="race-pill khoroshavin-race" data-race="23"></div></div>
+                        <div class="timeline-cell"><div class="race-pill bahriy-race" data-race="24"></div></div>
+                    </div>
+                </div>
+
+                <!-- By Car View -->
+                <div id="carView" class="view-container" style="display: none;">
+                    <!-- NASCAR Truck -->
+                    <div class="group-label">NASCAR Truck</div>
+                    <div class="timeline-grid">
+                        <div class="race-number">01</div><div class="race-number">02</div><div class="race-number">03</div><div class="race-number">04</div><div class="race-number">05</div><div class="race-number">06</div><div class="race-number">07</div><div class="race-number">08</div><div class="race-number">09</div><div class="race-number">10</div><div class="race-number">11</div><div class="race-number">12</div><div class="race-number">13</div><div class="race-number">14</div><div class="race-number">15</div><div class="race-number">16</div><div class="race-number">17</div><div class="race-number">18</div><div class="race-number">19</div><div class="race-number">20</div><div class="race-number">21</div><div class="race-number">22</div><div class="race-number">23</div><div class="race-number">24</div>
+                        <div class="timeline-cell"><div class="race-pill petrosian-race" data-race="1"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill petrosian-race" data-race="8"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill petrosian-race" data-race="14"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill petrosian-race" data-race="19"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill petrosian-race" data-race="22"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div>
+                    </div>
+
+                    <!-- Formula Ford 1600 -->
+                    <div class="group-label">Formula Ford 1600</div>
+                    <div class="timeline-grid">
+                        <div class="race-number">01</div><div class="race-number">02</div><div class="race-number">03</div><div class="race-number">04</div><div class="race-number">05</div><div class="race-number">06</div><div class="race-number">07</div><div class="race-number">08</div><div class="race-number">09</div><div class="race-number">10</div><div class="race-number">11</div><div class="race-number">12</div><div class="race-number">13</div><div class="race-number">14</div><div class="race-number">15</div><div class="race-number">16</div><div class="race-number">17</div><div class="race-number">18</div><div class="race-number">19</div><div class="race-number">20</div><div class="race-number">21</div><div class="race-number">22</div><div class="race-number">23</div><div class="race-number">24</div>
+                        <div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill sova-race" data-race="2"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill kyshkan-race" data-race="7"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill bahriy-race" data-race="13"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill bahriy-race" data-race="18"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill bahriy-race" data-race="24"></div></div>
+                    </div>
+
+                    <!-- Super Formula Lights -->
+                    <div class="group-label">Super Formula Lights</div>
+                    <div class="timeline-grid">
+                        <div class="race-number">01</div><div class="race-number">02</div><div class="race-number">03</div><div class="race-number">04</div><div class="race-number">05</div><div class="race-number">06</div><div class="race-number">07</div><div class="race-number">08</div><div class="race-number">09</div><div class="race-number">10</div><div class="race-number">11</div><div class="race-number">12</div><div class="race-number">13</div><div class="race-number">14</div><div class="race-number">15</div><div class="race-number">16</div><div class="race-number">17</div><div class="race-number">18</div><div class="race-number">19</div><div class="race-number">20</div><div class="race-number">21</div><div class="race-number">22</div><div class="race-number">23</div><div class="race-number">24</div>
+                        <div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill sova-race" data-race="3"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill sova-race" data-race="6"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill khoroshavin-race" data-race="11"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill sova-race" data-race="16"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill sova-race" data-race="20"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div>
+                    </div>
+
+                    <!-- Acura ARX-06 GTP -->
+                    <div class="group-label">Acura ARX-06 GTP</div>
+                    <div class="timeline-grid">
+                        <div class="race-number">01</div><div class="race-number">02</div><div class="race-number">03</div><div class="race-number">04</div><div class="race-number">05</div><div class="race-number">06</div><div class="race-number">07</div><div class="race-number">08</div><div class="race-number">09</div><div class="race-number">10</div><div class="race-number">11</div><div class="race-number">12</div><div class="race-number">13</div><div class="race-number">14</div><div class="race-number">15</div><div class="race-number">16</div><div class="race-number">17</div><div class="race-number">18</div><div class="race-number">19</div><div class="race-number">20</div><div class="race-number">21</div><div class="race-number">22</div><div class="race-number">23</div><div class="race-number">24</div>
+                        <div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill khoroshavin-race" data-race="4"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill khoroshavin-race" data-race="10"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill khoroshavin-race" data-race="15"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill khoroshavin-race" data-race="23"></div></div><div class="timeline-cell"></div>
+                    </div>
+
+                    <!-- Radical SR10 -->
+                    <div class="group-label">Radical SR10</div>
+                    <div class="timeline-grid">
+                        <div class="race-number">01</div><div class="race-number">02</div><div class="race-number">03</div><div class="race-number">04</div><div class="race-number">05</div><div class="race-number">06</div><div class="race-number">07</div><div class="race-number">08</div><div class="race-number">09</div><div class="race-number">10</div><div class="race-number">11</div><div class="race-number">12</div><div class="race-number">13</div><div class="race-number">14</div><div class="race-number">15</div><div class="race-number">16</div><div class="race-number">17</div><div class="race-number">18</div><div class="race-number">19</div><div class="race-number">20</div><div class="race-number">21</div><div class="race-number">22</div><div class="race-number">23</div><div class="race-number">24</div>
+                        <div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill kyshkan-race" data-race="5"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill kyshkan-race" data-race="9"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill kyshkan-race" data-race="12"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill petrosian-race" data-race="17"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill bahriy-race" data-race="21"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div>
+                    </div>
+                </div>
+
+                <!-- By Track View -->
+                <div id="trackView" class="view-container" style="display: none;">
+                    <!-- Fuji -->
+                    <div class="group-label">Fuji - Grand Prix</div>
+                    <div class="timeline-grid">
+                        <div class="race-number">01</div><div class="race-number">02</div><div class="race-number">03</div><div class="race-number">04</div><div class="race-number">05</div><div class="race-number">06</div><div class="race-number">07</div><div class="race-number">08</div><div class="race-number">09</div><div class="race-number">10</div><div class="race-number">11</div><div class="race-number">12</div><div class="race-number">13</div><div class="race-number">14</div><div class="race-number">15</div><div class="race-number">16</div><div class="race-number">17</div><div class="race-number">18</div><div class="race-number">19</div><div class="race-number">20</div><div class="race-number">21</div><div class="race-number">22</div><div class="race-number">23</div><div class="race-number">24</div>
+                        <div class="timeline-cell"><div class="race-pill petrosian-race" data-race="1"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill kyshkan-race" data-race="9"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill sova-race" data-race="16"></div></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill bahriy-race" data-race="18"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill khoroshavin-race" data-race="23"></div></div><div class="timeline-cell"></div>
+                    </div>
+
+                    <!-- Road America -->
+                    <div class="group-label">Road America - Full Course</div>
+                    <div class="timeline-grid">
+                        <div class="race-number">01</div><div class="race-number">02</div><div class="race-number">03</div><div class="race-number">04</div><div class="race-number">05</div><div class="race-number">06</div><div class="race-number">07</div><div class="race-number">08</div><div class="race-number">09</div><div class="race-number">10</div><div class="race-number">11</div><div class="race-number">12</div><div class="race-number">13</div><div class="race-number">14</div><div class="race-number">15</div><div class="race-number">16</div><div class="race-number">17</div><div class="race-number">18</div><div class="race-number">19</div><div class="race-number">20</div><div class="race-number">21</div><div class="race-number">22</div><div class="race-number">23</div><div class="race-number">24</div>
+                        <div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill sova-race" data-race="2"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill sova-race" data-race="6"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill khoroshavin-race" data-race="15"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill petrosian-race" data-race="19"></div></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill bahriy-race" data-race="21"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div>
+                    </div>
+
+                    <!-- Silverstone -->
+                    <div class="group-label">Silverstone - Grand Prix</div>
+                    <div class="timeline-grid">
+                        <div class="race-number">01</div><div class="race-number">02</div><div class="race-number">03</div><div class="race-number">04</div><div class="race-number">05</div><div class="race-number">06</div><div class="race-number">07</div><div class="race-number">08</div><div class="race-number">09</div><div class="race-number">10</div><div class="race-number">11</div><div class="race-number">12</div><div class="race-number">13</div><div class="race-number">14</div><div class="race-number">15</div><div class="race-number">16</div><div class="race-number">17</div><div class="race-number">18</div><div class="race-number">19</div><div class="race-number">20</div><div class="race-number">21</div><div class="race-number">22</div><div class="race-number">23</div><div class="race-number">24</div>
+                        <div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill sova-race" data-race="3"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill khoroshavin-race" data-race="10"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill bahriy-race" data-race="13"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill petrosian-race" data-race="17"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill petrosian-race" data-race="22"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div>
+                    </div>
+
+                    <!-- Okayama -->
+                    <div class="group-label">Okayama - Full Course</div>
+                    <div class="timeline-grid">
+                        <div class="race-number">01</div><div class="race-number">02</div><div class="race-number">03</div><div class="race-number">04</div><div class="race-number">05</div><div class="race-number">06</div><div class="race-number">07</div><div class="race-number">08</div><div class="race-number">09</div><div class="race-number">10</div><div class="race-number">11</div><div class="race-number">12</div><div class="race-number">13</div><div class="race-number">14</div><div class="race-number">15</div><div class="race-number">16</div><div class="race-number">17</div><div class="race-number">18</div><div class="race-number">19</div><div class="race-number">20</div><div class="race-number">21</div><div class="race-number">22</div><div class="race-number">23</div><div class="race-number">24</div>
+                        <div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill khoroshavin-race" data-race="4"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill kyshkan-race" data-race="7"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill kyshkan-race" data-race="12"></div></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill petrosian-race" data-race="14"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill sova-race" data-race="20"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div>
+                    </div>
+
+                    <!-- Charlotte -->
+                    <div class="group-label">Charlotte - Roval 2025</div>
+                    <div class="timeline-grid">
+                        <div class="race-number">01</div><div class="race-number">02</div><div class="race-number">03</div><div class="race-number">04</div><div class="race-number">05</div><div class="race-number">06</div><div class="race-number">07</div><div class="race-number">08</div><div class="race-number">09</div><div class="race-number">10</div><div class="race-number">11</div><div class="race-number">12</div><div class="race-number">13</div><div class="race-number">14</div><div class="race-number">15</div><div class="race-number">16</div><div class="race-number">17</div><div class="race-number">18</div><div class="race-number">19</div><div class="race-number">20</div><div class="race-number">21</div><div class="race-number">22</div><div class="race-number">23</div><div class="race-number">24</div>
+                        <div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill kyshkan-race" data-race="5"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill petrosian-race" data-race="8"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill khoroshavin-race" data-race="11"></div></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"></div><div class="timeline-cell"><div class="race-pill bahriy-race" data-race="24"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="driver-cards">
+            <div class="driver-cards">
+                <div class="driver-card petrosian-card">
+                    <div class="driver-card-header">
+                        <div class="driver-badge"></div>
+                        <div class="driver-info">
+                            <div class="driver-name">A. Petrosian</div>
+                            <div class="driver-races-count">6 races</div>
+                        </div>
+                    </div>
+                    <div class="race-list">
+                        <div class="race-item">
+                            <div class="race-num">RACE 01</div>
+                            <div class="car-name">NASCAR Truck</div>
+                            <div class="track-name">Fuji</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 08</div>
+                            <div class="car-name">NASCAR Truck</div>
+                            <div class="track-name">Charlotte</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 14</div>
+                            <div class="car-name">NASCAR Truck</div>
+                            <div class="track-name">Okayama</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 17</div>
+                            <div class="car-name">Radical SR10</div>
+                            <div class="track-name">Silverstone</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 19</div>
+                            <div class="car-name">NASCAR Truck</div>
+                            <div class="track-name">Road America</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 22</div>
+                            <div class="car-name">NASCAR Truck</div>
+                            <div class="track-name">Silverstone</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="driver-card khoroshavin-card">
+                    <div class="driver-card-header">
+                        <div class="driver-badge"></div>
+                        <div class="driver-info">
+                            <div class="driver-name">D. Khoroshavin</div>
+                            <div class="driver-races-count">5 races</div>
+                        </div>
+                    </div>
+                    <div class="race-list">
+                        <div class="race-item">
+                            <div class="race-num">RACE 04</div>
+                            <div class="car-name">Acura ARX-06 GTP</div>
+                            <div class="track-name">Okayama</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 10</div>
+                            <div class="car-name">Acura ARX-06 GTP</div>
+                            <div class="track-name">Silverstone</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 11</div>
+                            <div class="car-name">Formula Lights</div>
+                            <div class="track-name">Charlotte</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 15</div>
+                            <div class="car-name">Acura ARX-06 GTP</div>
+                            <div class="track-name">Road America</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 23</div>
+                            <div class="car-name">Acura ARX-06 GTP</div>
+                            <div class="track-name">Fuji</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="driver-card bahriy-card">
+                    <div class="driver-card-header">
+                        <div class="driver-badge"></div>
+                        <div class="driver-info">
+                            <div class="driver-name">O. Bahriy</div>
+                            <div class="driver-races-count">4 races</div>
+                        </div>
+                    </div>
+                    <div class="race-list">
+                        <div class="race-item">
+                            <div class="race-num">RACE 13</div>
+                            <div class="car-name">Formula Ford 1600</div>
+                            <div class="track-name">Silverstone</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 18</div>
+                            <div class="car-name">Formula Ford 1600</div>
+                            <div class="track-name">Fuji</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 21</div>
+                            <div class="car-name">Radical SR10</div>
+                            <div class="track-name">Road America</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 24</div>
+                            <div class="car-name">Formula Ford 1600</div>
+                            <div class="track-name">Charlotte</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="driver-card kyshkan-card">
+                    <div class="driver-card-header">
+                        <div class="driver-badge"></div>
+                        <div class="driver-info">
+                            <div class="driver-name">P. Kyshkan</div>
+                            <div class="driver-races-count">4 races</div>
+                        </div>
+                    </div>
+                    <div class="race-list">
+                        <div class="race-item">
+                            <div class="race-num">RACE 05</div>
+                            <div class="car-name">Radical SR10</div>
+                            <div class="track-name">Charlotte</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 07</div>
+                            <div class="car-name">Formula Ford 1600</div>
+                            <div class="track-name">Okayama</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 09</div>
+                            <div class="car-name">Radical SR10</div>
+                            <div class="track-name">Fuji</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 12</div>
+                            <div class="car-name">Radical SR10</div>
+                            <div class="track-name">Okayama</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="driver-card sova-card">
+                    <div class="driver-card-header">
+                        <div class="driver-badge"></div>
+                        <div class="driver-info">
+                            <div class="driver-name">A. Sova</div>
+                            <div class="driver-races-count">5 races</div>
+                        </div>
+                    </div>
+                    <div class="race-list">
+                        <div class="race-item">
+                            <div class="race-num">RACE 02</div>
+                            <div class="car-name">Formula Ford 1600</div>
+                            <div class="track-name">Road America</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 03</div>
+                            <div class="car-name">Formula Lights</div>
+                            <div class="track-name">Silverstone</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 06</div>
+                            <div class="car-name">Formula Lights</div>
+                            <div class="track-name">Road America</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 16</div>
+                            <div class="car-name">Formula Lights</div>
+                            <div class="track-name">Fuji</div>
+                        </div>
+                        <div class="race-item">
+                            <div class="race-num">RACE 20</div>
+                            <div class="car-name">Formula Lights</div>
+                            <div class="track-name">Okayama</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="legend">
+            <div class="logo-text">UAmateurs</div>
+        </div>
+    </div>
+
+    <!-- Modal Window -->
+    <div id="raceModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <div class="modal-header">
+                <div class="modal-race-number"></div>
+            </div>
+            <div class="modal-body">
+                <div class="modal-info-row">
+                    <span class="modal-label">Driver</span>
+                    <span class="modal-value modal-driver"></span>
+                </div>
+                <div class="modal-info-row">
+                    <span class="modal-label">Car</span>
+                    <span class="modal-value modal-car"></span>
+                </div>
+                <div class="modal-info-row">
+                    <span class="modal-label">Track</span>
+                    <span class="modal-value modal-track"></span>
+                </div>
+                <div class="modal-info-row">
+                    <span class="modal-label">Start Time</span>
+                    <span class="modal-value modal-time"></span>
+                </div>
+                <div class="modal-info-row modal-remark-row" style="display: none;">
+                    <span class="modal-label">Note</span>
+                    <span class="modal-value modal-remark"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Function to show both CET and Kyiv time
+        function formatTime(cetTime) {
+            // Parse CET time
+            const match = cetTime.match(/(\d{1,2}):(\d{2})/);
+            if (!match) return cetTime;
+            
+            let cetHours = parseInt(match[1]);
+            const minutes = match[2];
+            
+            // Calculate Kyiv time (CET + 1 hour)
+            let kyivHours = (cetHours + 1) % 24;
+            
+            const cetFormatted = `${cetHours.toString().padStart(2, '0')}:${minutes} CET`;
+            const kyivFormatted = `${kyivHours.toString().padStart(2, '0')}:${minutes} EET`;
+            
+            return `${cetFormatted} / ${kyivFormatted}`;
+        }
+        
+        // Race data mapping
+        const raceData = {
+            1: { driver: 'A. Petrosian', car: 'NASCAR Truck', track: 'Fuji', time: '18:00 CET' },
+            2: { driver: 'A. Sova', car: 'Formula Ford 1600', track: 'Road America', time: '19:00 CET', remark: 'Probability of rain' },
+            3: { driver: 'A. Sova', car: 'Super Formula Lights', track: 'Silverstone', time: '20:00 CET' },
+            4: { driver: 'D. Khoroshavin', car: 'Acura ARX-06 GTP', track: 'Okayama', time: '21:00 CET' },
+            5: { driver: 'P. Kyshkan', car: 'Radical SR10', track: 'Charlotte', time: '22:00 CET' },
+            6: { driver: 'A. Sova', car: 'Super Formula Lights', track: 'Road America', time: '23:00 CET', remark: 'Probability of rain' },
+            7: { driver: 'P. Kyshkan', car: 'Formula Ford 1600', track: 'Okayama', time: '00:00 CET' },
+            8: { driver: 'A. Petrosian', car: 'NASCAR Truck', track: 'Charlotte', time: '01:00 CET', remark: 'Dark conditions' },
+            9: { driver: 'P. Kyshkan', car: 'Radical SR10', track: 'Fuji', time: '02:00 CET', remark: 'Dark conditions' },
+            10: { driver: 'D. Khoroshavin', car: 'Acura ARX-06 GTP', track: 'Silverstone', time: '03:00 CET', remark: 'Probability of rain; Dark conditions' },
+            11: { driver: 'D. Khoroshavin', car: 'Super Formula Lights', track: 'Charlotte', time: '04:00 CET', remark: 'Dark conditions' },
+            12: { driver: 'P. Kyshkan', car: 'Radical SR10', track: 'Okayama', time: '05:00 CET', remark: 'Dark conditions' },
+            13: { driver: 'O. Bahriy', car: 'Formula Ford 1600', track: 'Silverstone', time: '06:00 CET' },
+            14: { driver: 'A. Petrosian', car: 'NASCAR Truck', track: 'Okayama', time: '07:00 CET' },
+            15: { driver: 'D. Khoroshavin', car: 'Acura ARX-06 GTP', track: 'Road America', time: '08:00 CET' },
+            16: { driver: 'A. Sova', car: 'Super Formula Lights', track: 'Fuji', time: '09:00 CET', remark: 'Probability of rain' },
+            17: { driver: 'A. Petrosian', car: 'Radical SR10', track: 'Silverstone', time: '10:00 CET' },
+            18: { driver: 'O. Bahriy', car: 'Formula Ford 1600', track: 'Fuji', time: '11:00 CET' },
+            19: { driver: 'A. Petrosian', car: 'NASCAR Truck', track: 'Road America', time: '12:00 CET' },
+            20: { driver: 'A. Sova', car: 'Super Formula Lights', track: 'Okayama', time: '13:00 CET' },
+            21: { driver: 'O. Bahriy', car: 'Radical SR10', track: 'Road America', time: '14:00 CET' },
+            22: { driver: 'A. Petrosian', car: 'NASCAR Truck', track: 'Silverstone', time: '15:00 CET' },
+            23: { driver: 'D. Khoroshavin', car: 'Acura ARX-06 GTP', track: 'Fuji', time: '16:00 CET', remark: 'Probability of rain' },
+            24: { driver: 'O. Bahriy', car: 'Formula Ford 1600', track: 'Charlotte', time: '17:00 CET' }
+        };
+
+        // Get modal elements
+        const modal = document.getElementById('raceModal');
+        const modalClose = document.querySelector('.modal-close');
+        const modalRaceNumber = document.querySelector('.modal-race-number');
+        const modalDriver = document.querySelector('.modal-driver');
+        const modalCar = document.querySelector('.modal-car');
+        const modalTrack = document.querySelector('.modal-track');
+        const modalTime = document.querySelector('.modal-time');
+        const modalRemark = document.querySelector('.modal-remark');
+        const modalRemarkRow = document.querySelector('.modal-remark-row');
+
+        // Add click listeners to all race pills
+        document.querySelectorAll('.race-pill').forEach((pill) => {
+            pill.addEventListener('click', function() {
+                const raceNumber = parseInt(this.getAttribute('data-race'));
+                const race = raceData[raceNumber];
+                
+                if (race) {
+                    modalRaceNumber.textContent = `RACE ${raceNumber.toString().padStart(2, '0')}`;
+                    modalDriver.textContent = race.driver;
+                    modalCar.textContent = race.car;
+                    modalTrack.textContent = race.track;
+                    modalTime.textContent = formatTime(race.time);
+                    
+                    // Show or hide remark row
+                    if (race.remark) {
+                        modalRemark.textContent = race.remark;
+                        modalRemarkRow.style.display = 'flex';
+                    } else {
+                        modalRemarkRow.style.display = 'none';
+                    }
+                    
+                    modal.style.display = 'flex';
+                }
+            });
+        });
+
+        // Close modal on X click
+        modalClose.addEventListener('click', function() {
+            modal.style.display = 'none';
+        });
+
+        // Close modal on outside click
+        window.addEventListener('click', function(event) {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        // Close modal on ESC key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && modal.style.display === 'flex') {
+                modal.style.display = 'none';
+            }
+        });
+
+        // View mode toggle handler
+        const viewModeButtons = document.querySelectorAll('.view-mode-btn');
+        const scheduleView = document.getElementById('scheduleView');
+        const carView = document.getElementById('carView');
+        const trackView = document.getElementById('trackView');
+
+        viewModeButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const viewMode = this.getAttribute('data-view');
+                
+                // Update active button
+                viewModeButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Show/hide views
+                scheduleView.style.display = 'none';
+                carView.style.display = 'none';
+                trackView.style.display = 'none';
+                
+                if (viewMode === 'schedule') {
+                    scheduleView.style.display = 'block';
+                } else if (viewMode === 'car') {
+                    carView.style.display = 'block';
+                } else if (viewMode === 'track') {
+                    trackView.style.display = 'block';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
