@@ -318,29 +318,31 @@ const BAY_D = 5;     // bay depth
 const BUILDING = { x: 0, y: 0, w: 80, h: 70 };
 
 // Rows of bays. Two letters = a double row (two rows back to back), one letter = a single row.
-//   dir 'h': runs west→east, bays numbered west→east, rows[0] is the north side
-//   dir 'v': runs north→south, bays numbered north→south, rows[0] is the west side
-// Cars face the aisle: rows[0] faces north/west, rows[1] south/east. A single row
-// facing south/east is written [null, 'X'].
+//   dir 'h': runs west→east, bays numbered west→east (reverse: true → east→west)
+//   dir 'v': runs north→south, bays numbered north→south (reverse: true → south→north)
+// Double rows: rows[0] is the north/west side and faces north/west, rows[1] faces south/east.
+// Single rows face `face` ('north', 'south', 'east' or 'west'), i.e. towards their aisle.
 const ROWS = [
-  { zone: 'North', rows: ['A', 'B'], dir: 'h', x: 0,   y: -16,   bays: 38 },
-  { zone: 'East',  rows: ['C', 'D'], dir: 'v', x: 86,  y: 0,     bays: 20 },   // inner double row
-  { zone: 'East',  rows: ['E'],      dir: 'v', x: 102, y: -19.5, bays: 29 },   // outer line, single, faces the D aisle
+  // outer line along the north edge: 11 bays from the east corner to the building
+  { zone: 'North', rows: ['A'],      dir: 'h', x: 68.5, y: -19.5, bays: 11, face: 'south', reverse: true },
+  { zone: 'East',  rows: ['C', 'D'], dir: 'v', x: 86,   y: 0,     bays: 20 },                  // inner double row
+  { zone: 'East',  rows: ['E'],      dir: 'v', x: 102,  y: -19.5, bays: 29, face: 'west' },    // outer line
 ];
 
 // Tarmac: the rows plus the 6 m aisles around them
 const PAVED = [
-  { x: -6, y: -22, w: 114.5, h: 22 },
+  { x: 62.5, y: -20.5, w: 46, h: 20.5 },
   { x: 80, y: -6,  w: 28.5,  h: 62 },
 ];
 
 const LABELS = [
-  { text: 'NORTH', x: 50, y: -25.5 },
+  { text: 'NORTH', x: 82, y: -24 },
   { text: 'EAST', x: 112, y: 25, rotate: 90 },
 ];
 
-// The map can't be panned or zoomed out beyond this area (metres)
-const AREA = { x0: -125, y0: -105, x1: 245, y1: 150 };
+// Panning stops at this area (metres); zooming out never shows more than MAX_VIEW_H of height
+const AREA = { x0: -125, y0: -45, x1: 245, y1: 110 };
+const MAX_VIEW_H = 290;
 
 /* Surroundings, for orientation only. Traced from the Google Earth screenshot
    (≈0.39 m/px); polygons are flat lists of x,y pairs in metres. */
@@ -421,12 +423,14 @@ const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;
 const bays = [];
 const bayById = new Map();
 for (const dr of ROWS) {
+  const single = dr.rows.length === 1;
   dr.rows.forEach((row, side) => {
-    if (!row) return;
+    const out = single ? (dr.face === 'south' || dr.face === 'east' ? 1 : -1) : (side ? 1 : -1);
     for (let i = 0; i < dr.bays; i++) {
+      const k = dr.reverse ? dr.bays - 1 - i : i;          // position along the row
       const b = dr.dir === 'h'
-        ? { x: dr.x + i * BAY_W, y: dr.y + side * BAY_D, w: BAY_W, h: BAY_D, fx: 0, fy: side ? 1 : -1 }
-        : { x: dr.x + side * BAY_D, y: dr.y + i * BAY_W, w: BAY_D, h: BAY_W, fx: side ? 1 : -1, fy: 0 };
+        ? { x: dr.x + k * BAY_W, y: dr.y + side * BAY_D, w: BAY_W, h: BAY_D, fx: 0, fy: out }
+        : { x: dr.x + side * BAY_D, y: dr.y + k * BAY_W, w: BAY_D, h: BAY_W, fx: out, fy: 0 };
       // (fx, fy) = direction the car's front faces: out towards the aisle
       b.id = row + String(i + 1).padStart(2, '0');
       b.row = row; b.zone = dr.zone; b.dir = dr.dir; b.order = bays.length;
@@ -539,7 +543,7 @@ function smoothPath(pts) {
 }
 
 function drawSurroundings() {
-  const s = SURROUNDINGS, A = AREA, m = 60;          // grass reaches past the pan limits
+  const s = SURROUNDINGS, A = AREA, m = 100;         // grass reaches past the pan limits
   let h = `<rect class="grass" x="${u(A.x0 - m)}" y="${u(A.y0 - m)}" width="${u(A.x1 - A.x0 + 2 * m)}" height="${u(A.y1 - A.y0 + 2 * m)}"/>`;
   h += s.field.map(p => poly(p, 'field')).join('') + s.trees.map(p => poly(p, 'trees')).join('');
   h += s.hard.map(p => poly(p, 'hard')).join('') + s.roads.map(p => poly(p, 'side-road')).join('');
@@ -603,7 +607,6 @@ function draw() {
   for (const dr of ROWS) {
     const len = dr.bays * BAY_W;
     dr.rows.forEach((row, side) => {
-      if (!row) return;
       const off = side * BAY_D + BAY_D / 2;
       const ends = dr.dir === 'h'
         ? [[dr.x - 3, dr.y + off], [dr.x + len + 3, dr.y + off]]
@@ -643,8 +646,8 @@ const clampK = k => Math.min(K_MAX, Math.max(kMin, k));
 function measure() {
   const r = stage.getBoundingClientRect();
   W = r.width; H = r.height;
-  // furthest zoom-out: the screen is fully covered by the drawn area
-  kMin = Math.max(W / (EXTENT.x1 - EXTENT.x0), H / (EXTENT.y1 - EXTENT.y0));
+  // furthest zoom-out: no wider than the pan area, no taller than MAX_VIEW_H
+  kMin = Math.max(W / (EXTENT.x1 - EXTENT.x0), H / MAX_VIEW_H);
 }
 
 // whole car park in view (or as close as the zoom-out limit allows)
@@ -654,7 +657,8 @@ function fitView() {
   return constrain({ k, x: W / 2 - (CONTENT.x0 + CONTENT.x1) / 2 * k, y: H / 2 - (CONTENT.y0 + CONTENT.y1) / 2 * k });
 }
 
-// keep the visible area inside EXTENT (centre it when the extent is smaller than the screen)
+// keep the visible area inside EXTENT; on an axis where the screen shows more than the
+// extent (e.g. up/down when zoomed out), centre it instead, so that axis can't move
 function constrain(v) {
   const vx0 = -v.x / v.k, vx1 = (W - v.x) / v.k, vy0 = -v.y / v.k, vy1 = (H - v.y) / v.k;
   const dx0 = vx0 - EXTENT.x0, dx1 = vx1 - EXTENT.x1, dy0 = vy0 - EXTENT.y0, dy1 = vy1 - EXTENT.y1;
