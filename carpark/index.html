@@ -1,0 +1,916 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#000000">
+<title>Car Park · MB North Dublin</title>
+<!--
+  Car park map — Mercedes-Benz North Dublin (MSL). Internal tool, v1.
+  One self-contained file, no external requests.
+
+  To edit:
+    • Layout (rows, bay counts, positions) → "1. SITE LAYOUT" in the script.
+    • Cars in bays                          → "2. STOCK" in the script.
+      While STOCK is empty the page shows generated demo cars.
+  Deep link to a car or bay: …/carpark/#262D99999 or …/carpark/#E07
+-->
+<style>
+  :root {
+    --black: #000;
+    --ink: #141414;
+    --muted: #6f6f6f;
+    --accent: #0078d6;          /* Mercedes-Benz web blue */
+    --ground: #e8eae6;          /* outside the site */
+    --paved: #cfd2d6;           /* car park surface */
+    --road: #b6b9be;
+    --building: #24262a;
+    --sans: "MB Corpo S Text", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+    --serif: "MB Corpo A Title Cond", "MB Corpo A Title", Georgia, "Times New Roman", serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex; flex-direction: column;
+    height: 100vh; height: 100dvh; overflow: hidden;
+    font: 14px/1.35 var(--sans); color: var(--ink); background: var(--ground);
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button { font: inherit; color: inherit; }
+
+  /* ── Header ───────────────────────────────────────────── */
+  .bar {
+    position: relative; z-index: 20;
+    display: flex; align-items: center; gap: 10px 24px;
+    padding: 10px max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
+    padding-top: max(10px, env(safe-area-inset-top));
+    background: var(--black); color: #fff;
+  }
+  .brand small {
+    display: block; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: #9b9b9b;
+  }
+  .brand h1 { margin: 0; font: 400 21px/1.15 var(--serif); white-space: nowrap; }
+  .search { position: relative; flex: 1; max-width: 520px; }
+  .search input {
+    width: 100%; height: 40px; padding: 0 40px 0 38px;
+    font: 16px var(--sans); color: #fff; background: #1b1b1b;
+    border: 1px solid #3b3b3b; border-radius: 4px; outline: none;
+    -webkit-appearance: none; appearance: none;
+  }
+  .search input::placeholder { color: #8a8a8a; }
+  .search input:focus { border-color: var(--accent); background: #212121; }
+  .search input::-webkit-search-cancel-button { display: none; }
+  .search .ico { position: absolute; left: 11px; top: 11px; width: 18px; height: 18px; color: #8a8a8a; pointer-events: none; }
+  .search .clear {
+    position: absolute; right: 4px; top: 4px; width: 32px; height: 32px;
+    border: 0; background: none; color: #a8a8a8; font-size: 22px; line-height: 1; cursor: pointer;
+  }
+  .meta { display: flex; align-items: center; gap: 10px; margin-left: auto; font-size: 12px; color: #bdbdbd; white-space: nowrap; }
+  .badge {
+    padding: 2px 7px; border: 1px solid #5c5c5c; border-radius: 3px;
+    font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #e0e0e0;
+  }
+
+  /* search results */
+  .results {
+    position: absolute; left: 0; right: 0; top: calc(100% + 6px);
+    max-height: min(60vh, 440px); overflow-y: auto; overscroll-behavior: contain;
+    margin: 0; padding: 4px 0; list-style: none;
+    background: #fff; color: var(--ink); border-radius: 4px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .28);
+  }
+  .results li { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 8px 12px; cursor: pointer; }
+  .results li.active { background: #eaf3fc; }
+  @media (hover: hover) { .results li:hover { background: #eaf3fc; } }
+  .results .r-main { flex: 1; min-width: 0; }
+  .results .r-reg { display: block; font-weight: 700; letter-spacing: .02em; }
+  .results .r-sub { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .results .r-note { padding: 12px; color: var(--muted); cursor: default; min-height: 0; }
+  .pill { flex: none; padding: 2px 7px; border-radius: 3px; background: #efefef; font-weight: 700; font-size: 13px; letter-spacing: .02em; }
+  .swatch { flex: none; width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, .35); background: #fff; }
+  .swatch.empty { border-style: dashed; background: transparent; }
+
+  /* ── Map ──────────────────────────────────────────────── */
+  .stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+  #map {
+    position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block;
+    touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    cursor: grab;
+  }
+  #map.dragging { cursor: grabbing; }
+
+  .paved { fill: var(--paved); }
+  .road-edge { fill: none; stroke: #dcdedf; }
+  .road { fill: none; stroke: var(--road); }
+  .road-line { fill: none; stroke: #fff; stroke-width: 1.5; stroke-dasharray: 30 40; opacity: .9; }
+  .bld { fill: var(--building); }
+  .bld-name { fill: #fff; font: 700 32px var(--sans); letter-spacing: 6px; text-anchor: middle; }
+  .bld-sub { fill: #a9abae; font: 400 22px var(--sans); letter-spacing: 6px; text-anchor: middle; }
+  .zone { fill: #8b8e92; font: 700 26px var(--sans); letter-spacing: 8px; text-anchor: middle; }
+
+  .bay { cursor: pointer; }
+  .bay > rect { fill: transparent; stroke: #fff; stroke-width: 1.2; }
+  @media (hover: hover) { .bay:hover > rect { fill: rgba(0, 120, 214, .16); } }
+  .bay.sel > rect { fill: rgba(0, 120, 214, .22); }
+  .bay use { transition: opacity .2s; }
+  #map.searching .bay:not(.hit) use { opacity: .25; }
+  #map.searching .bay.hit > rect { fill: rgba(0, 120, 214, .3); }
+
+  /* zoom level 2: bay numbers; level 3: number moves to the inner end + number plates */
+  .bay-id, .bay-id2, .plate { display: none; pointer-events: none; }
+  #map.z2 .bay-id { display: inline; }
+  #map.z3 .bay-id { display: none; }
+  #map.z3 .bay-id2, #map.z3 .plate { display: inline; }
+  .bay-id, .bay-id2 {
+    font: 700 9px var(--sans); fill: #111; text-anchor: middle; dominant-baseline: central;
+    paint-order: stroke; stroke: rgba(255, 255, 255, .9); stroke-width: 2.4px; stroke-linejoin: round;
+  }
+  .bay-id2 { font-size: 6px; stroke-width: 1.6px; }
+  .plate rect { fill: #fff; stroke: #111; stroke-width: .4; }
+  .plate text { font: 700 4px var(--sans); fill: #111; text-anchor: middle; dominant-baseline: central; }
+
+  .tag circle { fill: #fff; stroke: #111; stroke-width: 1.2; }
+  .tag text { font: 700 15px var(--sans); fill: #111; text-anchor: middle; dominant-baseline: central; }
+
+  .sel-box { fill: none; stroke: var(--accent); stroke-width: 3.5; }
+  .sel-pulse {
+    fill: none; stroke: var(--accent); stroke-width: 3;
+    transform-box: fill-box; transform-origin: center;
+    animation: pulse 1.6s ease-out infinite;
+  }
+  @keyframes pulse { from { transform: scale(.35); opacity: 1; } to { transform: scale(1); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .sel-pulse { animation: none; opacity: .6; } }
+
+  /* overlays */
+  .compass {
+    position: absolute; left: 12px; top: 12px; width: 40px; height: 40px;
+    display: grid; place-items: center; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .25); pointer-events: none;
+  }
+  .compass svg { width: 26px; height: 26px; }
+  .zoom { position: absolute; right: 12px; top: 12px; display: flex; flex-direction: column; box-shadow: 0 1px 4px rgba(0, 0, 0, .25); border-radius: 4px; overflow: hidden; }
+  .zoom button {
+    width: 40px; height: 40px; border: 0; border-bottom: 1px solid #e4e4e4; background: #fff;
+    font-size: 20px; line-height: 1; cursor: pointer; display: grid; place-items: center;
+  }
+  .zoom button:last-child { border-bottom: 0; }
+  .zoom button:active { background: #eee; }
+  .zoom svg { width: 18px; height: 18px; }
+
+  .tip {
+    position: absolute; left: 0; top: 0; z-index: 5; pointer-events: none;
+    padding: 7px 10px; border-radius: 4px; background: rgba(0, 0, 0, .9); color: #fff;
+    font-size: 12.5px; line-height: 1.35; white-space: nowrap;
+  }
+  .tip b { display: block; font-size: 14px; letter-spacing: .03em; }
+  .tip span { color: #c9c9c9; }
+
+  .card {
+    position: absolute; z-index: 6; left: 16px; bottom: max(16px, env(safe-area-inset-bottom)); width: 340px;
+    padding: 14px 16px; border-radius: 6px; background: #fff;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .22);
+  }
+  .card-head { display: flex; align-items: center; gap: 12px; padding-right: 28px; }
+  .card-head .swatch { width: 22px; height: 22px; }
+  .card-reg { font-size: 21px; font-weight: 700; letter-spacing: .03em; }
+  .card-sub { color: var(--muted); }
+  .card-foot { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #ececec; }
+  .card-foot .pill { background: var(--black); color: #fff; font-size: 14px; padding: 3px 9px; }
+  .card-zone { flex: 1; min-width: 0; color: var(--muted); font-size: 13px; }
+  .card-btn { border: 1px solid #cfcfcf; background: #fff; border-radius: 4px; padding: 6px 10px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+  .card-btn:active { background: #f0f0f0; }
+  .card-x {
+    position: absolute; right: 6px; top: 6px; width: 36px; height: 36px;
+    border: 0; background: none; color: #8a8a8a; font-size: 24px; line-height: 1; cursor: pointer;
+  }
+
+  @media (max-width: 640px) {
+    .bar { flex-wrap: wrap; padding-bottom: 12px; }
+    .brand h1 { font-size: 18px; }
+    .meta { flex-direction: column-reverse; align-items: flex-end; gap: 4px; font-size: 11px; }
+    .search { order: 3; flex-basis: 100%; max-width: none; }
+    .card { left: 8px; right: 8px; width: auto; bottom: max(8px, env(safe-area-inset-bottom)); }
+  }
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="brand">
+    <small>Mercedes-Benz · MSL</small>
+    <h1>North Dublin car park</h1>
+  </div>
+  <div class="search">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
+    <input id="q" type="search" placeholder="Find a car: reg, model or bay" aria-label="Find a car by reg, model or bay"
+           autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" enterkeyhint="search">
+    <button class="clear" id="clear" type="button" aria-label="Clear search" hidden>×</button>
+    <ul class="results" id="results" role="listbox" hidden></ul>
+  </div>
+  <div class="meta">
+    <span id="stats"></span>
+    <span class="badge" id="demo" hidden>Demo data</span>
+  </div>
+</header>
+
+<main class="stage" id="stage">
+  <svg id="map" role="img" aria-label="Car park map">
+    <defs>
+      <!-- top-down car, 4.7 m × 1.9 m, front pointing +x (units: 10 per metre) -->
+      <g id="car">
+        <ellipse cx="9.6" cy="-10.1" rx="1.5" ry="1" stroke="#000" stroke-opacity=".5" stroke-width=".5"/>
+        <ellipse cx="9.6" cy="10.1" rx="1.5" ry="1" stroke="#000" stroke-opacity=".5" stroke-width=".5"/>
+        <path stroke="#000" stroke-opacity=".55" stroke-width=".6"
+              d="M-23.5-6.2C-23.5-8.6-22.2-9.5-19.5-9.5H17C21.5-9.5 23.5-8 23.5-4.5V4.5C23.5 8 21.5 9.5 17 9.5H-19.5C-22.2 9.5-23.5 8.6-23.5 6.2Z"/>
+        <path fill="#2b3440"
+              d="M12.6-7.8Q14.2 0 12.6 7.8L5.6 6.6Q6.3 0 5.6-6.6ZM-12-6.6Q-12.6 0-12 6.6L-17 7.4Q-18.2 0-17-7.4ZM5-7.7-11.4-7.4V-8.3L4.2-8.7ZM5 7.7-11.4 7.4V8.3L4.2 8.7Z"/>
+      </g>
+    </defs>
+    <g id="world"></g>
+  </svg>
+
+  <div class="compass" aria-hidden="true">
+    <svg viewBox="0 0 26 26"><text x="13" y="9" font-size="9" font-weight="700" fill="#111" text-anchor="middle" font-family="Arial, sans-serif">N</text><path d="M13 11.5 17 23l-4-2.6L9 23Z" fill="#111"/></svg>
+  </div>
+
+  <div class="zoom">
+    <button type="button" data-zoom="in" aria-label="Zoom in">+</button>
+    <button type="button" data-zoom="out" aria-label="Zoom out">−</button>
+    <button type="button" data-zoom="fit" aria-label="Show whole car park">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+    </button>
+  </div>
+
+  <div class="tip" id="tip" hidden></div>
+
+  <section class="card" id="card" hidden aria-live="polite">
+    <button class="card-x" id="card-close" type="button" aria-label="Close">×</button>
+    <div class="card-head">
+      <span class="swatch" id="card-swatch"></span>
+      <div>
+        <div class="card-reg" id="card-reg"></div>
+        <div class="card-sub" id="card-sub"></div>
+      </div>
+    </div>
+    <div class="card-foot">
+      <span class="pill" id="card-bay"></span>
+      <span class="card-zone" id="card-zone"></span>
+      <button class="card-btn" id="card-locate" type="button">Centre</button>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+'use strict';
+
+/* =====================================================================
+   1. SITE LAYOUT  (metres; origin = building's north-west corner,
+      x grows east, y grows south)
+      Traced from the satellite image at roughly 0.2 m per pixel, so it
+      is approximate. Adjust bay counts / positions here.
+   ===================================================================== */
+const BAY_W = 2.5;   // bay width
+const BAY_D = 5;     // bay depth
+
+const BUILDING = { x: 0, y: 0, w: 80, h: 70 };
+
+// A double row = two rows of bays back to back.
+//   dir 'h': runs west→east, bays numbered west→east, rows[0] is the north side
+//   dir 'v': runs north→south, bays numbered north→south, rows[0] is the west side
+const DOUBLE_ROWS = [
+  { zone: 'North', rows: ['A', 'B'], dir: 'h', x: 0,   y: -16, bays: 44 },
+  { zone: 'East',  rows: ['C', 'D'], dir: 'v', x: 86,  y: 0,   bays: 20 },
+  { zone: 'East',  rows: ['E', 'F'], dir: 'v', x: 102, y: 0,   bays: 20 },
+];
+
+// Tarmac: the rows plus the 6 m aisles around them
+const PAVED = [
+  { x: -6, y: -22, w: 124, h: 22 },
+  { x: 80, y: -6,  w: 38,  h: 62 },
+];
+
+// Main road centre line (for orientation only)
+const ROAD = [[-60, 109], [-16.8, 106], [3.2, 104.8], [23.2, 102.4], [43.2, 97.2], [63.2, 89.6],
+              [78.2, 81], [83.2, 77.8], [103.2, 68.8], [123.2, 63.8], [143.2, 59.8], [190, 56]];
+const ROAD_W = 11;
+
+const LABELS = [
+  { text: 'NORTH', x: 56, y: -25.5 },
+  { text: 'EAST', x: 121.5, y: 25, rotate: 90 },
+];
+
+/* =====================================================================
+   2. STOCK  — one entry per parked car. `bay` must match a bay on the
+      map (A01 … F20). Leave empty to show generated demo cars.
+   ===================================================================== */
+const STOCK = [
+  // { bay: 'E07', reg: '262-D-99999', model: 'GLE 300 d', colour: 'Black' },
+];
+
+/* ===================================================================== */
+
+const S = 10;                          // SVG units per metre (keeps font sizes sane)
+const u = v => Math.round(v * S * 100) / 100;
+const $ = s => document.querySelector(s);
+const norm = s => String(s).toUpperCase().replace(/[^A-Z0-9]/g, '');
+const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+
+/* ---------- bays ---------- */
+const bays = [];
+const bayById = new Map();
+for (const dr of DOUBLE_ROWS) {
+  dr.rows.forEach((row, side) => {
+    for (let i = 0; i < dr.bays; i++) {
+      const b = dr.dir === 'h'
+        ? { x: dr.x + i * BAY_W, y: dr.y + side * BAY_D, w: BAY_W, h: BAY_D, fx: 0, fy: side ? 1 : -1 }
+        : { x: dr.x + side * BAY_D, y: dr.y + i * BAY_W, w: BAY_D, h: BAY_W, fx: side ? 1 : -1, fy: 0 };
+      // (fx, fy) = direction the car's front faces: out towards the aisle
+      b.id = row + String(i + 1).padStart(2, '0');
+      b.row = row; b.zone = dr.zone; b.dir = dr.dir; b.order = bays.length;
+      b.cx = b.x + b.w / 2; b.cy = b.y + b.h / 2;
+      b.rot = Math.atan2(b.fy, b.fx) * 180 / Math.PI;
+      bays.push(b); bayById.set(b.id, b);
+    }
+  });
+}
+
+/* ---------- cars ---------- */
+const PAINT = [
+  [/black|obsidian/i, '#17181a'],
+  [/white|polar|opalite/i, '#f5f5f3'],
+  [/silver|iridium|high.?tech/i, '#c3c6ca'],
+  [/gr[ae]y|graphite|selenite|mountain/i, '#7b7f85'],
+  [/blue|spectral|nautic|cavansite|sodalite/i, '#26476f'],
+  [/red|patagonia|hyacinth|jupiter/i, '#a3192b'],
+  [/green|emerald|olive/i, '#2f5a48'],
+  [/brown|beige|bronze|kalahari|gold|cashmere/i, '#8a6c4e'],
+  [/yellow/i, '#e0b521'],
+  [/orange/i, '#df6f1d'],
+];
+const paint = colour => (PAINT.find(([re]) => re.test(colour)) || [0, '#9a9da1'])[1];
+
+// rough footprint by model family [length, width] in metres
+const SIZES = [
+  [/^(A|B|GLA|EQA)\b/, 4.45, 1.82],
+  [/^(C|CLA|CLE|GLB|EQB|GLC|SL)\b/, 4.72, 1.87],
+  [/^(E|EQE|GLE|G)\b/, 4.92, 1.94],
+  [/^(S|EQS|GLS|V|MAYBACH)\b/, 5.2, 1.96],
+];
+const sizeOf = model => {
+  const m = String(model).toUpperCase().trim();
+  const hit = SIZES.find(([re]) => re.test(m));
+  return hit ? [hit[1], hit[2]] : [4.7, 1.88];
+};
+
+function demoStock() {
+  let seed = 0x2620d;
+  const rnd = () => {   // mulberry32: same demo cars on every load
+    seed = seed + 0x6d2b79f5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+  const pick = list => {
+    let r = rnd() * list.reduce((a, x) => a + x[1], 0);
+    for (const x of list) if ((r -= x[1]) < 0) return x[0];
+    return list[list.length - 1][0];
+  };
+  const MODELS = [
+    ['A 180', 6], ['A 200 d', 3], ['B 200', 2], ['CLA 200', 3], ['CLA 250+', 3], ['GLA 200', 6], ['EQA 250+', 4],
+    ['C 200', 5], ['C 220 d', 7], ['C 300 e', 3], ['CLE 220 d', 2], ['GLB 200 d', 3], ['EQB 250+', 2],
+    ['GLC 220 d', 9], ['GLC 300 de', 4], ['E 220 d', 5], ['E 300 e', 3], ['EQE 300', 2], ['EQE SUV 350+', 1],
+    ['GLE 300 d', 4], ['GLE 450 d', 2], ['G 450 d', 1], ['S 450 d', 1], ['EQS 450+', 1], ['GLS 450 d', 1],
+  ];
+  const COLOURS = [['Black', 24], ['Grey', 22], ['White', 14], ['Silver', 12], ['Blue', 10], ['Red', 4], ['Green', 3]];
+  const COUNTIES = [['D', 70], ['MH', 6], ['KE', 6], ['WW', 3], ['LH', 3], ['C', 2], ['G', 2], ['WH', 2], ['KK', 1], ['CN', 1], ['LS', 1]];
+  const used = new Set(['262D99999']);
+  const out = [];
+  for (const b of bays) {
+    if (rnd() > 0.8) continue;
+    let reg;
+    do {
+      const isNew = rnd() < 0.45;
+      const year = isNew ? 26 : 15 + Math.floor(rnd() * 11);
+      const half = isNew ? (rnd() < 0.75 ? 2 : 1) : (rnd() < 0.5 ? 1 : 2);
+      const county = isNew && rnd() < 0.9 ? 'D' : pick(COUNTIES);
+      reg = `${year}${half}-${county}-${1 + Math.floor(rnd() * (county === 'D' ? 99999 : 9999))}`;
+    } while (used.has(norm(reg)));
+    used.add(norm(reg));
+    out.push({ bay: b.id, reg, model: pick(MODELS), colour: pick(COLOURS) });
+  }
+  // the example from the brief
+  const ex = { bay: 'E07', reg: '262-D-99999', model: 'GLE 300 d', colour: 'Black' };
+  const i = out.findIndex(c => c.bay === ex.bay);
+  i >= 0 ? (out[i] = ex) : out.push(ex);
+  return out;
+}
+
+const isDemo = STOCK.length === 0;
+const carAt = new Map();          // bay id → car
+for (const c of isDemo ? demoStock() : STOCK) {
+  const id = norm(c.bay).replace(/^([A-Z]+)(\d)$/, (_, row, n) => row + '0' + n);   // "c7" → "C07"
+  if (!bayById.has(id)) { console.warn('Unknown bay for', c); continue; }
+  if (carAt.has(id)) console.warn('Two cars in bay', id, carAt.get(id), c);
+  const [len, wid] = sizeOf(c.model);
+  carAt.set(id, {
+    reg: String(c.reg || '').trim() || '—', model: String(c.model || '').trim(), colour: String(c.colour || '').trim(),
+    hex: paint(c.colour || ''), sx: +(len / 4.7).toFixed(3), sy: +(wid / 1.9).toFixed(3),
+    key: norm(c.reg || ''), keyModel: norm(c.model || ''), keyColour: norm(c.colour || ''),
+  });
+}
+
+/* ---------- draw ---------- */
+const svg = $('#map'), world = $('#world');
+
+function smoothPath(pts) {
+  let d = `M${u(pts[0][0])} ${u(pts[0][1])}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    d += `C${u(p1[0] + (p2[0] - p0[0]) / 6)} ${u(p1[1] + (p2[1] - p0[1]) / 6)} ` +
+         `${u(p2[0] - (p3[0] - p1[0]) / 6)} ${u(p2[1] - (p3[1] - p1[1]) / 6)} ${u(p2[0])} ${u(p2[1])}`;
+  }
+  return d;
+}
+
+function draw() {
+  const road = smoothPath(ROAD);
+  let h = `<g>
+    <path class="road-edge" d="${road}" stroke-width="${u(ROAD_W + 5)}"/>
+    <path class="road" d="${road}" stroke-width="${u(ROAD_W)}"/>
+    <path class="road-line" d="${road}"/>`;
+  for (const p of PAVED) h += `<rect class="paved" x="${u(p.x)}" y="${u(p.y)}" width="${u(p.w)}" height="${u(p.h)}" rx="${u(1.5)}"/>`;
+  const B = BUILDING, bx = u(B.x + B.w / 2), by = u(B.y + B.h / 2);
+  h += `<rect class="bld" x="${u(B.x)}" y="${u(B.y)}" width="${u(B.w)}" height="${u(B.h)}"/>
+    <text class="bld-name" x="${bx}" y="${by - 6}">MERCEDES-BENZ</text>
+    <text class="bld-sub" x="${bx}" y="${by + 26}">NORTH DUBLIN</text>`;
+  for (const l of LABELS) {
+    h += `<text class="zone" x="${u(l.x)}" y="${u(l.y)}"${l.rotate ? ` transform="rotate(${l.rotate} ${u(l.x)} ${u(l.y)})"` : ''}>${esc(l.text)}</text>`;
+  }
+  h += `</g><g id="bays">`;
+
+  for (const b of bays) {
+    const c = carAt.get(b.id);
+    h += `<g class="bay" data-id="${b.id}"><rect x="${u(b.x)}" y="${u(b.y)}" width="${u(b.w)}" height="${u(b.h)}"/>`;
+    if (c) {
+      h += `<use href="#car" fill="${c.hex}" transform="translate(${u(b.cx)} ${u(b.cy)}) rotate(${b.rot}) scale(${c.sx} ${c.sy})"/>`;
+      const px = b.cx - b.fx * 0.6, py = b.cy - b.fy * 0.6;       // plate: nudged to the inner end
+      const pw = u(c.reg.length * 0.22 + 0.4);
+      h += `<g class="plate" transform="translate(${u(px)} ${u(py)})${b.dir === 'h' ? ' rotate(-90)' : ''}">` +
+           `<rect x="${-pw / 2}" y="-3.5" width="${pw}" height="7" rx="1"/><text>${esc(c.reg)}</text></g>`;
+    }
+    // bay number: centred (zoom level 2), or at the aisle end next to the plate (level 3)
+    h += `<text class="bay-id" x="${u(b.cx)}" y="${u(b.cy)}">${b.id}</text>` +
+         `<text class="bay-id2" x="${u(b.cx + b.fx * 1.8)}" y="${u(b.cy + b.fy * 1.8)}">${b.id}</text></g>`;
+  }
+  h += `</g><g>`;
+
+  // row letters at both ends of every row
+  for (const dr of DOUBLE_ROWS) {
+    const len = dr.bays * BAY_W;
+    dr.rows.forEach((row, side) => {
+      const off = side * BAY_D + BAY_D / 2;
+      const ends = dr.dir === 'h'
+        ? [[dr.x - 3, dr.y + off], [dr.x + len + 3, dr.y + off]]
+        : [[dr.x + off, dr.y - 3], [dr.x + off, dr.y + len + 3]];
+      for (const [x, y] of ends) {
+        h += `<g class="tag"><circle cx="${u(x)}" cy="${u(y)}" r="${u(1.3)}"/><text x="${u(x)}" y="${u(y)}">${row}</text></g>`;
+      }
+    });
+  }
+  h += `</g><g id="sel"></g>`;
+  world.innerHTML = h;
+}
+draw();
+
+const bayEls = new Map([...world.querySelectorAll('.bay')].map(el => [el.getAttribute('data-id'), el]));
+const selLayer = $('#sel');
+
+/* ---------- header stats ---------- */
+$('#stats').textContent = `${carAt.size} cars · ${bays.length - carAt.size} free`;
+$('#demo').hidden = !isDemo;
+
+/* =====================================================================
+   VIEW: screen = world(m) × k + (x, y)
+   ===================================================================== */
+const stage = $('#stage');
+const view = { k: 1, x: 0, y: 0 };
+let W = 0, H = 0, kMin = 1, fitted = true;
+const K_MAX = 40;
+
+const xs = [...PAVED.map(p => p.x), BUILDING.x], ys = [...PAVED.map(p => p.y), BUILDING.y];
+const xe = [...PAVED.map(p => p.x + p.w), BUILDING.x + BUILDING.w], ye = [...PAVED.map(p => p.y + p.h), BUILDING.y + BUILDING.h];
+const CONTENT = { x0: Math.min(...xs) - 2, y0: Math.min(...ys) - 6, x1: Math.max(...xe) + 6, y1: Math.max(...ye) + 2 };
+const EXTENT = { x0: CONTENT.x0 - 40, y0: CONTENT.y0 - 40, x1: CONTENT.x1 + 40, y1: CONTENT.y1 + 40 };
+
+const clampK = k => Math.min(K_MAX, Math.max(kMin, k));
+
+function measure() {
+  const r = stage.getBoundingClientRect();
+  W = r.width; H = r.height;
+}
+
+function fitView() {
+  const pad = 20;
+  const k = Math.min((W - pad * 2) / (CONTENT.x1 - CONTENT.x0), (H - pad * 2) / (CONTENT.y1 - CONTENT.y0));
+  return { k, x: W / 2 - (CONTENT.x0 + CONTENT.x1) / 2 * k, y: H / 2 - (CONTENT.y0 + CONTENT.y1) / 2 * k };
+}
+
+// keep the visible area inside EXTENT (centre it when the extent is smaller than the screen)
+function constrain(v) {
+  const vx0 = -v.x / v.k, vx1 = (W - v.x) / v.k, vy0 = -v.y / v.k, vy1 = (H - v.y) / v.k;
+  const dx0 = vx0 - EXTENT.x0, dx1 = vx1 - EXTENT.x1, dy0 = vy0 - EXTENT.y0, dy1 = vy1 - EXTENT.y1;
+  const sx = dx1 > dx0 ? (dx0 + dx1) / 2 : Math.min(0, dx0) || Math.max(0, dx1);
+  const sy = dy1 > dy0 ? (dy0 + dy1) / 2 : Math.min(0, dy0) || Math.max(0, dy1);
+  v.x += sx * v.k; v.y += sy * v.k;
+  return v;
+}
+
+let zoomClass = '';
+function apply() {
+  const s = view.k / S;
+  world.setAttribute('transform', `matrix(${s} 0 0 ${s} ${view.x} ${view.y})`);
+  const z = view.k >= 22 ? 'z3' : view.k >= 10 ? 'z2' : '';
+  if (z !== zoomClass) {
+    svg.classList.remove('z2', 'z3');
+    if (z === 'z3') svg.classList.add('z2', 'z3');
+    else if (z) svg.classList.add(z);
+    zoomClass = z;
+  }
+  sizePulse();
+}
+
+function zoomAt(p, f) {
+  const k = clampK(view.k * f), r = k / view.k;
+  view.x = p.x - (p.x - view.x) * r;
+  view.y = p.y - (p.y - view.y) * r;
+  view.k = k;
+  fitted = false;
+  constrain(view); apply();
+}
+
+/* smooth zoom+pan path (van Wijk & Nuij, as used by d3-interpolate, ISC licence) */
+function zoomPath(p0, p1) {
+  const rho = Math.SQRT2, rho2 = 2, rho4 = 4;
+  const [ux0, uy0, w0] = p0, [ux1, uy1, w1] = p1, dx = ux1 - ux0, dy = uy1 - uy0, d2 = dx * dx + dy * dy;
+  let i, S1;
+  if (d2 < 1e-12) {
+    S1 = Math.log(w1 / w0) / rho;
+    i = t => [ux0 + t * dx, uy0 + t * dy, w0 * Math.exp(rho * t * S1)];
+  } else {
+    const d1 = Math.sqrt(d2),
+      b0 = (w1 * w1 - w0 * w0 + rho4 * d2) / (2 * w0 * rho2 * d1),
+      b1 = (w1 * w1 - w0 * w0 - rho4 * d2) / (2 * w1 * rho2 * d1),
+      r0 = Math.log(Math.sqrt(b0 * b0 + 1) - b0),
+      r1 = Math.log(Math.sqrt(b1 * b1 + 1) - b1);
+    S1 = (r1 - r0) / rho;
+    i = t => {
+      const s = t * S1, c0 = Math.cosh(r0),
+        k = w0 / (rho2 * d1) * (c0 * Math.tanh(rho * s + r0) - Math.sinh(r0));
+      return [ux0 + k * dx, uy0 + k * dy, w0 * c0 / Math.cosh(rho * s + r0)];
+    };
+  }
+  i.duration = Math.abs(S1) * 1000;
+  return i;
+}
+
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let raf = 0;
+const stopFly = () => { if (raf) cancelAnimationFrame(raf); raf = 0; };
+const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+// animate to a target view {k, x, y}. Interpolates the world point at the
+// screen centre, so a resize mid-flight (phone keyboard closing) can't throw it off.
+function flyTo(t, ms) {
+  stopFly();
+  constrain(t);
+  const L = Math.max(W, H);
+  const p0 = [(W / 2 - view.x) / view.k, (H / 2 - view.y) / view.k, L / view.k];
+  const p1 = [(W / 2 - t.x) / t.k, (H / 2 - t.y) / t.k, L / t.k];
+  const place = (cx, cy, k) => { view.k = k; view.x = W / 2 - cx * k; view.y = H / 2 - cy * k; apply(); };
+  if (reduceMotion.matches) { place(p1[0], p1[1], t.k); return; }
+  const path = zoomPath(p0, p1);
+  const dur = ms || Math.min(1500, Math.max(450, path.duration));
+  const t0 = performance.now();
+  const step = now => {
+    const s = Math.min(1, (now - t0) / dur);
+    if (s >= 1) { place(p1[0], p1[1], t.k); raf = 0; return; }
+    const [cx, cy, w] = path(ease(s));
+    place(cx, cy, L / w);
+    raf = requestAnimationFrame(step);
+  };
+  raf = requestAnimationFrame(step);
+}
+
+function zoomBy(f, p = { x: W / 2, y: H / 2 }) {
+  const k = clampK(view.k * f), r = k / view.k;
+  fitted = false;
+  flyTo({ k, x: p.x - (p.x - view.x) * r, y: p.y - (p.y - view.y) * r }, 280);
+}
+
+function showAll() { fitted = true; flyTo(fitView(), 500); }
+
+// space the bottom card covers on phones
+const cardCover = () => (!card.hidden && card.offsetWidth > W * 0.8) ? card.offsetHeight + 16 : 0;
+
+function flyToBay(b) {
+  const free = H - cardCover();
+  let k = Math.min(Math.max(Math.min(W, free) / 32, 12), 24);   // ~32 m across the short side
+  k = Math.max(k, Math.min(view.k, K_MAX));                      // don't zoom out if already closer
+  fitted = false;
+  flyTo({ k, x: W / 2 - b.cx * k, y: free / 2 - b.cy * k });
+}
+
+/* =====================================================================
+   INPUT: drag to pan, wheel / pinch / double-tap to zoom, tap to select
+   ===================================================================== */
+const pts = new Map();
+let anchor = null, press = null, lastTap = null, lastPointerType = 'mouse';
+
+const local = e => { const r = svg.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+const bayIdOf = el => el && el.closest ? (el.closest('.bay') || { getAttribute: () => null }).getAttribute('data-id') : null;
+
+function reanchor() {
+  const p = [...pts.values()];
+  if (p.length === 1) anchor = { v: { ...view }, a: p[0] };
+  else if (p.length >= 2) anchor = {
+    v: { ...view },
+    m: { x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2 },
+    d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) || 1,
+  };
+  else anchor = null;
+}
+
+svg.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  lastPointerType = e.pointerType;
+  try { svg.setPointerCapture(e.pointerId); } catch (_) {}
+  stopFly(); hideTip(); closeResults();
+  const p = local(e);
+  pts.set(e.pointerId, p);
+  press = pts.size === 1 ? { x: p.x, y: p.y, id: bayIdOf(e.target), moved: false } : null;
+  reanchor();
+});
+
+svg.addEventListener('pointermove', e => {
+  if (!pts.has(e.pointerId)) { if (e.pointerType === 'mouse') hover(e); return; }
+  const p = local(e);
+  pts.set(e.pointerId, p);
+  if (press && !press.moved) {
+    if (Math.hypot(p.x - press.x, p.y - press.y) < 6) return;   // still a tap
+    press.moved = true;
+  }
+  const list = [...pts.values()];
+  if (list.length === 1 && anchor && anchor.a) {
+    view.k = anchor.v.k;
+    view.x = anchor.v.x + p.x - anchor.a.x;
+    view.y = anchor.v.y + p.y - anchor.a.y;
+  } else if (list.length >= 2 && anchor && anchor.m) {
+    const [a, b] = list, m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const k = clampK(anchor.v.k * Math.hypot(a.x - b.x, a.y - b.y) / anchor.d);
+    const wx = (anchor.m.x - anchor.v.x) / anchor.v.k, wy = (anchor.m.y - anchor.v.y) / anchor.v.k;
+    view.k = k; view.x = m.x - wx * k; view.y = m.y - wy * k;
+  } else return;
+  fitted = false;
+  svg.classList.add('dragging');
+  constrain(view); apply();
+});
+
+function pointerEnd(e) {
+  if (!pts.has(e.pointerId)) return;
+  pts.delete(e.pointerId);
+  if (!pts.size) svg.classList.remove('dragging');
+  if (press && !press.moved && e.type === 'pointerup' && !pts.size) {
+    const p = local(e);
+    const dbl = e.pointerType !== 'mouse' && lastTap && e.timeStamp - lastTap.t < 320 && Math.hypot(p.x - lastTap.x, p.y - lastTap.y) < 30;
+    if (dbl) { lastTap = null; zoomBy(2, p); }
+    else { lastTap = { t: e.timeStamp, x: p.x, y: p.y }; select(press.id); }
+  }
+  press = null;
+  reanchor();
+}
+svg.addEventListener('pointerup', pointerEnd);
+svg.addEventListener('pointercancel', pointerEnd);
+svg.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hideTip(); });
+svg.addEventListener('dblclick', e => { if (lastPointerType === 'mouse') zoomBy(2, local(e)); });
+svg.addEventListener('contextmenu', e => e.preventDefault());
+svg.addEventListener('wheel', e => {
+  e.preventDefault();
+  stopFly(); hideTip();
+  const dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? H : 1);
+  zoomAt(local(e), Math.pow(2, -dy * (e.ctrlKey ? 0.01 : 0.002)));
+}, { passive: false });
+
+document.querySelector('.zoom').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const z = btn.getAttribute('data-zoom');
+  if (z === 'in') zoomBy(2); else if (z === 'out') zoomBy(0.5); else showAll();
+});
+
+/* ---------- hover tooltip (mouse) ---------- */
+const tip = $('#tip');
+let tipId = null;
+function hover(e) {
+  const id = bayIdOf(e.target);
+  if (!id) return hideTip();
+  if (id !== tipId) {
+    const c = carAt.get(id);
+    tip.innerHTML = c
+      ? `<b>${esc(c.reg)}</b>${esc(c.model)}<span> · ${esc(c.colour)}</span><br><span>Bay ${id}</span>`
+      : `<b>${id}</b><span>Empty bay</span>`;
+    tipId = id;
+  }
+  tip.hidden = false;
+  const p = local(e), tw = tip.offsetWidth, th = tip.offsetHeight;
+  let x = p.x + 16, y = p.y + 16;
+  if (x + tw > W - 8) x = p.x - tw - 12;
+  if (y + th > H - 8) y = p.y - th - 12;
+  tip.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+}
+function hideTip() { tip.hidden = true; tipId = null; }
+
+/* =====================================================================
+   SELECTION + INFO CARD
+   ===================================================================== */
+const card = $('#card');
+let selected = null;
+
+function select(id, { fly = false } = {}) {
+  if (selected && bayEls.get(selected)) bayEls.get(selected).classList.remove('sel');
+  selected = id && bayById.has(id) ? id : null;
+  if (!selected) {
+    selLayer.innerHTML = '';
+    card.hidden = true;
+    setHash('');
+    return;
+  }
+  const b = bayById.get(id), c = carAt.get(id);
+  bayEls.get(id).classList.add('sel');
+  selLayer.innerHTML =
+    `<rect class="sel-box" x="${u(b.x - 0.2)}" y="${u(b.y - 0.2)}" width="${u(b.w + 0.4)}" height="${u(b.h + 0.4)}" rx="${u(0.4)}"/>` +
+    `<circle class="sel-pulse" cx="${u(b.cx)}" cy="${u(b.cy)}" r="${u(4)}"/>`;
+  sizePulse();
+
+  $('#card-reg').textContent = c ? c.reg : `Bay ${id}`;
+  $('#card-sub').textContent = c ? [c.model, c.colour].filter(Boolean).join(' · ') : 'Empty bay';
+  const sw = $('#card-swatch');
+  sw.style.background = c ? c.hex : '';
+  sw.classList.toggle('empty', !c);
+  $('#card-bay').textContent = id;
+  $('#card-zone').textContent = `${b.zone} car park · row ${b.row}`;
+  card.hidden = false;
+  setHash(c && c.key ? c.key : id);
+  if (fly) flyToBay(b);
+}
+
+// keep the pulse ring a similar size on screen at any zoom
+function sizePulse() {
+  const ring = selLayer.firstElementChild && selLayer.lastElementChild;
+  if (ring && ring.tagName === 'circle') ring.setAttribute('r', u(Math.max(3.2, 34 / view.k)));
+}
+
+$('#card-close').addEventListener('click', () => select(null));
+$('#card-locate').addEventListener('click', () => selected && flyToBay(bayById.get(selected)));
+
+function setHash(h) {
+  const url = location.pathname + location.search + (h ? '#' + h : '');
+  try { history.replaceState(null, '', url); } catch (_) {}
+}
+
+/* =====================================================================
+   SEARCH
+   ===================================================================== */
+const q = $('#q'), results = $('#results'), clearBtn = $('#clear');
+let hits = [], active = -1;
+
+function search(text) {
+  const qn = norm(text);
+  if (qn.length < 2) return [];
+  const tokens = String(text).toUpperCase().split(/[\s,]+/).map(norm).filter(Boolean);
+  const out = [];
+  for (const b of bays) {
+    const c = carAt.get(b.id);
+    const short = b.row + Number(b.id.slice(b.row.length));            // C07 → C7
+    let score = 0;
+    if (qn === b.id || qn === short) score = 100;
+    else if (c && c.key === qn) score = 90;
+    else if (c && c.key.startsWith(qn)) score = 70;
+    else if (c && c.key.includes(qn)) score = 60;
+    else if (c && tokens.every(t => c.key.includes(t) || c.keyModel.includes(t) || c.keyColour.startsWith(t) || t === b.id)) score = 40;
+    if (score) out.push({ b, c, score });
+  }
+  return out.sort((a, z) => z.score - a.score || a.b.order - z.b.order);
+}
+
+function runSearch() {
+  const text = q.value;
+  clearBtn.hidden = !text;
+  hits = search(text);
+  active = hits.length ? 0 : -1;
+
+  for (const el of bayEls.values()) el.classList.remove('hit');
+  for (const h of hits) bayEls.get(h.b.id).classList.add('hit');
+  svg.classList.toggle('searching', hits.length > 0);
+  renderResults();
+}
+
+function renderResults() {
+  const text = q.value.trim();
+  if (norm(text).length < 2) { closeResults(); return; }
+  if (!hits.length) {
+    results.innerHTML = `<li class="r-note">No car matches “${esc(text)}”</li>`;
+  } else {
+    const shown = hits.slice(0, 60);
+    results.innerHTML = shown.map((h, i) => {
+      const c = h.c;
+      return `<li role="option" data-i="${i}"${i === active ? ' class="active" aria-selected="true"' : ''}>` +
+        `<span class="swatch${c ? '' : ' empty'}"${c ? ` style="background:${c.hex}"` : ''}></span>` +
+        `<span class="r-main"><span class="r-reg">${c ? esc(c.reg) : 'Empty bay'}</span>` +
+        `<span class="r-sub">${c ? esc([c.model, c.colour].filter(Boolean).join(' · ')) : esc(h.b.zone + ' car park')}</span></span>` +
+        `<span class="pill">${h.b.id}</span></li>`;
+    }).join('') + (hits.length > shown.length ? `<li class="r-note">+ ${hits.length - shown.length} more, keep typing</li>` : '');
+  }
+  results.hidden = false;
+}
+
+function closeResults() { results.hidden = true; }
+
+function setActive(i) {
+  const items = results.querySelectorAll('li[data-i]');
+  if (!items.length) return;
+  active = (i + items.length) % items.length;
+  items.forEach((li, n) => {
+    li.classList.toggle('active', n === active);
+    li.setAttribute('aria-selected', n === active ? 'true' : 'false');
+  });
+  items[active].scrollIntoView({ block: 'nearest' });
+}
+
+function choose(h) {
+  if (!h) return;
+  closeResults();
+  q.blur();                       // closes the phone keyboard
+  select(h.b.id, { fly: true });
+}
+
+function clearSearch() {
+  q.value = '';
+  runSearch();
+}
+
+q.addEventListener('input', runSearch);
+q.addEventListener('focus', () => { if (hits.length || norm(q.value).length >= 2) renderResults(); });
+q.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); setActive(active + 1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(active - 1); }
+  else if (e.key === 'Enter') { e.preventDefault(); choose(hits[Math.max(active, 0)]); }
+  else if (e.key === 'Escape') {
+    if (!results.hidden) closeResults(); else clearSearch();
+  }
+});
+results.addEventListener('mousedown', e => e.preventDefault());   // keep focus in the box
+results.addEventListener('click', e => {
+  const li = e.target.closest('li[data-i]');
+  if (li) choose(hits[+li.getAttribute('data-i')]);
+});
+clearBtn.addEventListener('click', () => { clearSearch(); q.focus(); });
+document.addEventListener('pointerdown', e => {
+  if (!e.target.closest('.search')) closeResults();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && document.activeElement !== q) { e.preventDefault(); q.focus(); q.select(); }
+  else if (e.key === 'Escape' && document.activeElement !== q) select(null);
+});
+
+/* ---------- deep links: #262D99999 or #E07 ---------- */
+function fromHash() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (!h) return;
+  const best = search(h)[0];
+  if (best && best.score >= 90) select(best.b.id, { fly: true });
+}
+window.addEventListener('hashchange', fromHash);
+
+/* ---------- start ---------- */
+measure();
+kMin = fitView().k * 0.8;
+Object.assign(view, fitView());
+apply();
+
+new ResizeObserver(() => {
+  const cx = (W / 2 - view.x) / view.k, cy = (H / 2 - view.y) / view.k;
+  measure();
+  if (!W || !H) return;
+  kMin = fitView().k * 0.8;
+  if (fitted) Object.assign(view, fitView());
+  else { view.k = clampK(view.k); view.x = W / 2 - cx * view.k; view.y = H / 2 - cy * view.k; constrain(view); }
+  apply();
+}).observe(stage);
+
+fromHash();
+})();
+</script>
+</body>
+</html>
