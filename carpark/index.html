@@ -317,24 +317,26 @@ const BAY_D = 5;     // bay depth
 
 const BUILDING = { x: 0, y: 0, w: 80, h: 70 };
 
-// A double row = two rows of bays back to back.
+// Rows of bays. Two letters = a double row (two rows back to back), one letter = a single row.
 //   dir 'h': runs west→east, bays numbered west→east, rows[0] is the north side
 //   dir 'v': runs north→south, bays numbered north→south, rows[0] is the west side
-const DOUBLE_ROWS = [
-  { zone: 'North', rows: ['A', 'B'], dir: 'h', x: 0,   y: -16, bays: 44 },
-  { zone: 'East',  rows: ['C', 'D'], dir: 'v', x: 86,  y: 0,   bays: 20 },
-  { zone: 'East',  rows: ['E', 'F'], dir: 'v', x: 102, y: 0,   bays: 20 },
+// Cars face the aisle: rows[0] faces north/west, rows[1] south/east. A single row
+// facing south/east is written [null, 'X'].
+const ROWS = [
+  { zone: 'North', rows: ['A', 'B'], dir: 'h', x: 0,   y: -16,   bays: 38 },
+  { zone: 'East',  rows: ['C', 'D'], dir: 'v', x: 86,  y: 0,     bays: 20 },   // inner double row
+  { zone: 'East',  rows: ['E'],      dir: 'v', x: 102, y: -19.5, bays: 29 },   // outer line, single, faces the D aisle
 ];
 
 // Tarmac: the rows plus the 6 m aisles around them
 const PAVED = [
-  { x: -6, y: -22, w: 124, h: 22 },
-  { x: 80, y: -6,  w: 38,  h: 62 },
+  { x: -6, y: -22, w: 114.5, h: 22 },
+  { x: 80, y: -6,  w: 28.5,  h: 62 },
 ];
 
 const LABELS = [
-  { text: 'NORTH', x: 56, y: -25.5 },
-  { text: 'EAST', x: 121.5, y: 25, rotate: 90 },
+  { text: 'NORTH', x: 50, y: -25.5 },
+  { text: 'EAST', x: 112, y: 25, rotate: 90 },
 ];
 
 // The map can't be panned or zoomed out beyond this area (metres)
@@ -401,7 +403,7 @@ const ROAD_W = 10.5;
 
 /* =====================================================================
    2. STOCK  — one entry per parked car. `bay` must match a bay on the
-      map (A01 … F20). Leave empty to show generated demo cars.
+      map (A01 … E29). Leave empty to show generated demo cars.
    ===================================================================== */
 const STOCK = [
   // { bay: 'E07', reg: '262-D-99999', model: 'GLE 300 d', colour: 'Black' },
@@ -418,8 +420,9 @@ const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;
 /* ---------- bays ---------- */
 const bays = [];
 const bayById = new Map();
-for (const dr of DOUBLE_ROWS) {
+for (const dr of ROWS) {
   dr.rows.forEach((row, side) => {
+    if (!row) return;
     for (let i = 0; i < dr.bays; i++) {
       const b = dr.dir === 'h'
         ? { x: dr.x + i * BAY_W, y: dr.y + side * BAY_D, w: BAY_W, h: BAY_D, fx: 0, fy: side ? 1 : -1 }
@@ -597,9 +600,10 @@ function draw() {
   h += `</g><g>`;
 
   // row letters at both ends of every row
-  for (const dr of DOUBLE_ROWS) {
+  for (const dr of ROWS) {
     const len = dr.bays * BAY_W;
     dr.rows.forEach((row, side) => {
+      if (!row) return;
       const off = side * BAY_D + BAY_D / 2;
       const ends = dr.dir === 'h'
         ? [[dr.x - 3, dr.y + off], [dr.x + len + 3, dr.y + off]]
