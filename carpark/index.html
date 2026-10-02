@@ -143,6 +143,8 @@
   .paved { fill: var(--paved); stroke: #b3b7bc; stroke-width: 3; stroke-linejoin: round; }
   .footway { fill: #e3e4e2; }
   .wall { fill: none; stroke: #8e9399; stroke-width: 5; stroke-linejoin: round; stroke-linecap: round; }
+  .island { fill: #e3e4e2; stroke: #a3a7ac; stroke-width: 2; }
+  .island-bed { fill: #c3d1b9; }
   .road-edge { fill: none; stroke: #e9eaeb; }
   .road { fill: none; stroke: var(--road); }
   .road-line { fill: none; stroke: #fff; stroke-width: 1.5; stroke-dasharray: 30 40; opacity: .9; }
@@ -330,7 +332,8 @@ const BUILDING = { x: 0, y: 0, w: 80, h: 70 };
 const ROWS = [
   // outer line along the north edge: 11 bays from the east corner to the building
   { zone: 'North', rows: ['A'],      dir: 'h', x: 68.5, y: -19.5, bays: 11, face: 'south', reverse: true },
-  { zone: 'East',  rows: ['C', 'D'], dir: 'v', x: 86,   y: 0,     bays: 20 },                  // inner double row
+  // inner double row, bay for bay opposite E09–E27; a stone island closes its south end
+  { zone: 'East',  rows: ['C', 'D'], dir: 'v', x: 86,   y: 0.5,   bays: 19 },
   { zone: 'East',  rows: ['E'],      dir: 'v', x: 102,  y: -19.5, bays: 29, face: 'west' },    // outer line
   // south side, open space rather than a car park. From the showroom out: a pavement where cars
   // stand parallel to the showroom (F), a two-way road, then cars at right angles to the
@@ -344,10 +347,10 @@ const ROWS = [
 const TARMAC = [62.5,-20.5, 108.5,-20.5, 108.5,55.5, 80,84, -8,84, -8,70, 0,70, 0,0, 62.5,0];
 // Pavement along the showroom's south wall
 const FOOTWAYS = [{ x: 0, y: 70, w: 80, h: 3 }];
-// Centre line of the two-way road between the pavement and the cars along the wall
-const CENTRE_LINES = [[-6,76, 77,76]];
 // Boundary wall; trees and then the estate road lie beyond it
 const WALL = [0,84, 80,84, 108.5,55.5];
+// Kerbed stone islands: across the south end of the inner double row, opposite E28–E29
+const ISLANDS = [{ x: 86, y: 48, w: 10, h: 5 }];
 
 const LABELS = [
   { text: 'NORTH', x: 82, y: -24 },
@@ -611,8 +614,11 @@ function draw() {
   let h = `<g>${drawSurroundings()}`;
   h += poly(TARMAC, 'paved');
   for (const f of FOOTWAYS) h += `<rect class="footway" x="${u(f.x)}" y="${u(f.y)}" width="${u(f.w)}" height="${u(f.h)}"/>`;
-  for (const l of CENTRE_LINES) h += `<path class="road-line" d="M${pairs(l).map(([x, y]) => `${u(x)} ${u(y)}`).join('L')}"/>`;
   h += `<path class="wall" d="M${pairs(WALL).map(([x, y]) => `${u(x)} ${u(y)}`).join('L')}"/>`;
+  for (const i of ISLANDS) {
+    h += `<rect class="island" x="${u(i.x)}" y="${u(i.y)}" width="${u(i.w)}" height="${u(i.h)}" rx="${u(1)}"/>` +
+         `<rect class="island-bed" x="${u(i.x + 0.8)}" y="${u(i.y + 0.8)}" width="${u(i.w - 1.6)}" height="${u(i.h - 1.6)}" rx="${u(0.6)}"/>`;
+  }
   const B = BUILDING, bx = u(B.x + B.w / 2), by = u(B.y + B.h / 2);
   h += `<rect class="bld" x="${u(B.x)}" y="${u(B.y)}" width="${u(B.w)}" height="${u(B.h)}"/>
     <text class="bld-name" x="${bx}" y="${by - 6}">MERCEDES-BENZ</text>
