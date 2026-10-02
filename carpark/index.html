@@ -143,8 +143,9 @@
   .paved { fill: var(--paved); stroke: #b3b7bc; stroke-width: 3; stroke-linejoin: round; }
   .footway { fill: #e3e4e2; }
   .wall { fill: none; stroke: #8e9399; stroke-width: 5; stroke-linejoin: round; stroke-linecap: round; }
-  .island { fill: #e3e4e2; stroke: #a3a7ac; stroke-width: 2; }
+  .island { fill: #e3e4e2; stroke: #a3a7ac; stroke-width: 2; stroke-linejoin: round; }
   .island-bed { fill: #c3d1b9; }
+  .zebra { fill: #fff; }
   .road-edge { fill: none; stroke: #e9eaeb; }
   .road { fill: none; stroke: var(--road); }
   .road-line { fill: none; stroke: #fff; stroke-width: 1.5; stroke-dasharray: 30 40; opacity: .9; }
@@ -349,8 +350,11 @@ const TARMAC = [62.5,-20.5, 108.5,-20.5, 108.5,55.5, 80,84, -8,84, -8,70, 0,70, 
 const FOOTWAYS = [{ x: 0, y: 70, w: 80, h: 3 }];
 // Boundary wall; trees and then the estate road lie beyond it
 const WALL = [0,84, 80,84, 108.5,55.5];
-// Kerbed stone islands: across the south end of the inner double row, opposite E28–E29
-const ISLANDS = [{ x: 86, y: 48, w: 10, h: 5 }];
+// Kerbed stone islands (x,y pairs): across the south end of the inner double row, from E28 down
+// past the end of the outer line, its south-east corner cut parallel to the 45° boundary
+const ISLANDS = [[86,48, 96,48, 96,53, 91,58, 86,58]];
+// Zebra crossings, start and end of the walking line: from that island to the showroom wall
+const CROSSINGS = [[86,56.5, 80,56.5]];
 
 const LABELS = [
   { text: 'NORTH', x: 82, y: -24 },
@@ -568,6 +572,31 @@ const inside = ([x, y], flat) => {             // point in polygon (ray casting)
   return isIn;
 };
 
+// convex polygon shrunk by d metres on every side (planted bed inside an island's kerb)
+function inset(flat, d) {
+  const p = pairs(flat), n = p.length;
+  const area = p.reduce((a, [x, y], i) => a + x * p[(i + 1) % n][1] - p[(i + 1) % n][0] * y, 0);
+  const lines = p.map(([x0, y0], i) => {                     // each edge moved inwards: point + direction
+    const [x1, y1] = p[(i + 1) % n], len = Math.hypot(x1 - x0, y1 - y0), s = area > 0 ? d : -d;
+    return [x0 - (y1 - y0) / len * s, y0 + (x1 - x0) / len * s, x1 - x0, y1 - y0];
+  });
+  return lines.flatMap(([ax, ay, adx, ady], i) => {         // corner = where this edge meets the previous one
+    const [bx, by, bdx, bdy] = lines[(i + n - 1) % n], t = ((bx - ax) * bdy - (by - ay) * bdx) / (adx * bdy - ady * bdx);
+    return [ax + adx * t, ay + ady * t];
+  });
+}
+
+// zebra crossing: 0.5 m white bars every metre along the walking line, 2.6 m wide
+function zebra([ax, ay, bx, by]) {
+  const len = Math.hypot(bx - ax, by - ay), ux = (bx - ax) / len, uy = (by - ay) / len, nx = -uy * 1.3, ny = ux * 1.3;
+  let d = '';
+  for (let s = 0.25; s + 0.5 <= len; s += 1) {
+    const x0 = ax + ux * s, y0 = ay + uy * s, x1 = x0 + ux * 0.5, y1 = y0 + uy * 0.5;
+    d += `M${u(x0 + nx)} ${u(y0 + ny)}L${u(x1 + nx)} ${u(y1 + ny)}L${u(x1 - nx)} ${u(y1 - ny)}L${u(x0 - nx)} ${u(y0 - ny)}Z`;
+  }
+  return `<path class="zebra" d="${d}"/>`;
+}
+
 function smoothPath(pts) {
   let d = `M${u(pts[0][0])} ${u(pts[0][1])}`;
   for (let i = 0; i < pts.length - 1; i++) {
@@ -615,10 +644,8 @@ function draw() {
   h += poly(TARMAC, 'paved');
   for (const f of FOOTWAYS) h += `<rect class="footway" x="${u(f.x)}" y="${u(f.y)}" width="${u(f.w)}" height="${u(f.h)}"/>`;
   h += `<path class="wall" d="M${pairs(WALL).map(([x, y]) => `${u(x)} ${u(y)}`).join('L')}"/>`;
-  for (const i of ISLANDS) {
-    h += `<rect class="island" x="${u(i.x)}" y="${u(i.y)}" width="${u(i.w)}" height="${u(i.h)}" rx="${u(1)}"/>` +
-         `<rect class="island-bed" x="${u(i.x + 0.8)}" y="${u(i.y + 0.8)}" width="${u(i.w - 1.6)}" height="${u(i.h - 1.6)}" rx="${u(0.6)}"/>`;
-  }
+  for (const i of ISLANDS) h += poly(i, 'island') + poly(inset(i, 0.8), 'island-bed');
+  for (const c of CROSSINGS) h += zebra(c);
   const B = BUILDING, bx = u(B.x + B.w / 2), by = u(B.y + B.h / 2);
   h += `<rect class="bld" x="${u(B.x)}" y="${u(B.y)}" width="${u(B.w)}" height="${u(B.h)}"/>
     <text class="bld-name" x="${bx}" y="${by - 6}">MERCEDES-BENZ</text>
