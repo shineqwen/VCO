@@ -140,7 +140,8 @@
   }
   .road-name { font-weight: 400; font-size: 34px; letter-spacing: 3px; fill: #5c6167; }
 
-  .paved { fill: var(--paved); }
+  .paved { fill: var(--paved); stroke: #b3b7bc; stroke-width: 3; stroke-linejoin: round; }
+  .footway { fill: #e3e4e2; }
   .road-edge { fill: none; stroke: #e9eaeb; }
   .road { fill: none; stroke: var(--road); }
   .road-line { fill: none; stroke: #fff; stroke-width: 1.5; stroke-dasharray: 30 40; opacity: .9; }
@@ -315,7 +316,7 @@
 const BAY_W = 2.5;   // bay width
 const BAY_D = 5;     // bay depth
 
-const BUILDING = { x: 0, y: 0, w: 80, h: 70 };
+const BUILDING = { x: 0, y: 0, w: 80, h: 39 };
 
 // Rows of bays. Two letters = a double row (two rows back to back), one letter = a single row.
 //   dir 'h': runs west→east, bays numbered west→east (reverse: true → east→west)
@@ -327,17 +328,23 @@ const ROWS = [
   { zone: 'North', rows: ['A'],      dir: 'h', x: 68.5, y: -19.5, bays: 11, face: 'south', reverse: true },
   { zone: 'East',  rows: ['C', 'D'], dir: 'v', x: 86,   y: 0,     bays: 20 },                  // inner double row
   { zone: 'East',  rows: ['E'],      dir: 'v', x: 102,  y: -19.5, bays: 29, face: 'west' },    // outer line
+  // in front of the showroom: three rows parallel to the south wall (F along the footpath,
+  // G/H back to back), and J at right angles to the wall, in line with the south-east corner
+  { zone: 'South', rows: ['F'],      dir: 'h', x: 0,    y: 41,    bays: 27, face: 'south' },
+  { zone: 'South', rows: ['G', 'H'], dir: 'h', x: 0,    y: 52,    bays: 27 },
+  { zone: 'South', rows: ['J'],      dir: 'v', x: 75,   y: 41,    bays: 8,  face: 'west' },
 ];
 
-// Tarmac: the rows plus the 6 m aisles around them
-const PAVED = [
-  { x: 62.5, y: -20.5, w: 46, h: 20.5 },
-  { x: 80, y: -6,  w: 28.5,  h: 62 },
-];
+// Tarmac outline (x,y pairs). East of the building's south-east corner the edge runs
+// diagonally north-east with the main road (about 27° on the satellite image).
+const TARMAC = [62.5,-20.5, 108.5,-20.5, 108.5,53.5, 80,68, -8,68, -8,39, 0,39, 0,0, 62.5,0];
+// Paved footpath along the showroom's south wall
+const FOOTWAYS = [{ x: 0, y: 39, w: 80, h: 2 }];
 
 const LABELS = [
   { text: 'NORTH', x: 82, y: -24 },
   { text: 'EAST', x: 112, y: 25, rotate: 90 },
+  { text: 'SOUTH', x: 34, y: 72.5 },
 ];
 
 // Panning stops at this area (metres); zooming out never shows more than MAX_VIEW_H of height
@@ -405,7 +412,7 @@ const ROAD_W = 10.5;
 
 /* =====================================================================
    2. STOCK  — one entry per parked car. `bay` must match a bay on the
-      map (A01 … E29). Leave empty to show generated demo cars.
+      map (A01 … J08). Leave empty to show generated demo cars.
    ===================================================================== */
 const STOCK = [
   // { bay: 'E07', reg: '262-D-99999', model: 'GLE 300 d', colour: 'Black' },
@@ -531,6 +538,14 @@ const svg = $('#map'), world = $('#world');
 
 const pairs = flat => { const p = []; for (let i = 0; i < flat.length; i += 2) p.push([flat[i], flat[i + 1]]); return p; };
 const poly = (flat, cls) => `<path class="${cls}" d="M${pairs(flat).map(([x, y]) => `${u(x)} ${u(y)}`).join('L')}Z"/>`;
+const inside = ([x, y], flat) => {             // point in polygon (ray casting)
+  const p = pairs(flat); let isIn = false;
+  for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
+    const [xi, yi] = p[i], [xj, yj] = p[j];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) isIn = !isIn;
+  }
+  return isIn;
+};
 
 function smoothPath(pts) {
   let d = `M${u(pts[0][0])} ${u(pts[0][1])}`;
@@ -569,15 +584,15 @@ function drawSurroundings() {
   h += `<path class="road-edge" d="${road}" stroke-width="${u(ROAD_W + 5)}"/>
     <path class="road" d="${road}" stroke-width="${u(ROAD_W)}"/>
     <path class="road-line" d="${road}"/>`;
-  const onSite = ([x, y]) => PAVED.some(p => x > p.x - 2 && x < p.x + p.w + 2 && y > p.y - 2 && y < p.y + p.h + 2);
-  h += pairs(s.roadTrees).filter(t => !onSite(t)).map(([x, y]) => `<circle class="tree" cx="${u(x)}" cy="${u(y)}" r="${u(2.6)}"/>`).join('');
+  h += pairs(s.roadTrees).filter(t => !inside(t, TARMAC)).map(([x, y]) => `<circle class="tree" cx="${u(x)}" cy="${u(y)}" r="${u(2.6)}"/>`).join('');
 
   return h + s.buildings.map(p => poly(p, 'nbr')).join('');
 }
 
 function draw() {
   let h = `<g>${drawSurroundings()}`;
-  for (const p of PAVED) h += `<rect class="paved" x="${u(p.x)}" y="${u(p.y)}" width="${u(p.w)}" height="${u(p.h)}" rx="${u(1.5)}"/>`;
+  h += poly(TARMAC, 'paved');
+  for (const f of FOOTWAYS) h += `<rect class="footway" x="${u(f.x)}" y="${u(f.y)}" width="${u(f.w)}" height="${u(f.h)}"/>`;
   const B = BUILDING, bx = u(B.x + B.w / 2), by = u(B.y + B.h / 2);
   h += `<rect class="bld" x="${u(B.x)}" y="${u(B.y)}" width="${u(B.w)}" height="${u(B.h)}"/>
     <text class="bld-name" x="${bx}" y="${by - 6}">MERCEDES-BENZ</text>
@@ -636,9 +651,8 @@ const view = { k: 1, x: 0, y: 0 };
 let W = 0, H = 0, kMin = 1, fitted = true;
 const K_MAX = 40;
 
-const xs = [...PAVED.map(p => p.x), BUILDING.x], ys = [...PAVED.map(p => p.y), BUILDING.y];
-const xe = [...PAVED.map(p => p.x + p.w), BUILDING.x + BUILDING.w], ye = [...PAVED.map(p => p.y + p.h), BUILDING.y + BUILDING.h];
-const CONTENT = { x0: Math.min(...xs) - 2, y0: Math.min(...ys) - 6, x1: Math.max(...xe) + 6, y1: Math.max(...ye) + 2 };
+const xs = pairs(TARMAC).map(p => p[0]), ys = pairs(TARMAC).map(p => p[1]);
+const CONTENT = { x0: Math.min(...xs) - 2, y0: Math.min(...ys) - 6, x1: Math.max(...xs) + 6, y1: Math.max(...ys) + 6 };
 const EXTENT = AREA;
 
 const clampK = k => Math.min(K_MAX, Math.max(kMin, k));
