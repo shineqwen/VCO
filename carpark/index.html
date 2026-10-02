@@ -145,7 +145,7 @@
   .wall { fill: none; stroke: #8e9399; stroke-width: 5; stroke-linejoin: round; stroke-linecap: round; }
   .verge { fill: #d8e3cd; }                                    /* mown grass */
   .fence { fill: none; stroke: #7b8188; stroke-width: 2; stroke-linejoin: round; }
-  .corner { fill: #d8e3cd; stroke: #a3a7ac; stroke-width: 2; stroke-linejoin: round; }
+  .lamp { fill: #5c636b; stroke: #fff; stroke-width: 1.2; }
   .island { fill: #e3e4e2; }                                   /* concrete kerbs */
   .island-edge { fill: none; stroke: #a3a7ac; stroke-width: 2; stroke-linejoin: round; }
   .island-path { fill: url(#brick); }                          /* grey brick footpath */
@@ -362,14 +362,14 @@ const BUILDING = { x: 0, y: 0, w: 80, h: 70 };
 // skip: [n, n] → leave out the first n bays on each side (numbering starts after them).
 // ev: [n, n] → the first n bays on each side are EV charging bays.
 const ROWS = [
-  // outer line along the north edge: 11 bays from the east corner to the building; at the east end
-  // its letter sits on the grass corner
-  { zone: 'North', rows: ['A'],      dir: 'h', x: 68.5, y: -19.5, bays: 11, face: 'south', reverse: true, tagGap: [3, [1.6, -0.9]] },
+  // outer line along the north edge: 11 bays from the east corner to the building. It sits one bay
+  // depth higher than the top of the east outer line, with a grass corner between them.
+  { zone: 'North', rows: ['A'],      dir: 'h', x: 68.5, y: -24.5, bays: 11, face: 'south', reverse: true },
   // inner double row, bay for bay opposite E09–E27. At its north end the first 5 bays on the C side
   // are the bike park and the first 6 on the D side are EV charging bays; a stone island closes its
   // south end, and the row letters there sit on its flower bed
   { zone: 'East',  rows: ['C', 'D'], dir: 'v', x: 86,   y: 0.5,   bays: 19, skip: [5, 0], ev: [0, 6], tagGap: [3, 5] },
-  { zone: 'East',  rows: ['E'],      dir: 'v', x: 102,  y: -19.5, bays: 29, face: 'west', tagGap: [null, 3] },   // outer line
+  { zone: 'East',  rows: ['E'],      dir: 'v', x: 102,  y: -19.5, bays: 29, face: 'west' },    // outer line
   // south side, open space rather than a car park. From the showroom out: a pavement where cars
   // stand parallel to the showroom (F), a two-way road, then cars at right angles to the
   // boundary wall (G)
@@ -377,15 +377,15 @@ const ROWS = [
   { zone: 'South', rows: ['G'],      dir: 'h', x: 0,    y: 79,    bays: 31, face: 'north', unmarked: true },
 ];
 
-// Tarmac outline (x,y pairs). It stops at the backs of the north and east rows; in line with the
-// building's east wall the south boundary turns north-east at about 45°.
-const TARMAC = [62.5,-19.5, 107,-19.5, 107,57, 80,84, -8,84, -8,70, 0,70, 0,0, 62.5,0];
-// Mown grass behind the north and east rows, up to the palisade fence
-const VERGE = [62.5,-21.5, 109,-21.5, 109,55, 107,57, 107,-19.5, 62.5,-19.5];
-const FENCE = [62.5,-21.5, 109,-21.5, 109,55];
-// Kerbed grass corners (x,y pairs): north-east, between A01 and E01, its edge from the front of
-// A01 to the front of E01
-const CORNERS = [[96,-19.5, 102,-19.5, 96,-14.5]];
+// Tarmac outline (x,y pairs). It stops at the backs of the north and east rows and, in the
+// north-east corner, along the front of A01 and the top of E01; in line with the building's east
+// wall the south boundary turns north-east at about 45°.
+const TARMAC = [62.5,-24.5, 96,-24.5, 96,-19.5, 107,-19.5, 107,57, 80,84, -8,84, -8,70, 0,70, 0,0, 62.5,0];
+// Mown grass behind the north and east rows and in the corner between them, up to the palisade fence
+const VERGE = [62.5,-26.5, 109,-26.5, 109,55, 107,57, 107,-19.5, 96,-19.5, 96,-24.5, 62.5,-24.5];
+const FENCE = [62.5,-26.5, 109,-26.5, 109,55];
+// Lamp posts worth showing: the one on the grass corner between A01 and E01
+const LAMPS = [[101.75, -21]];
 // Pavement along the showroom's south wall
 const FOOTWAYS = [{ x: 0, y: 70, w: 80, h: 3 }];
 // Boundary wall; trees and then the estate road lie beyond it
@@ -405,7 +405,7 @@ const BIKE_PARKS = [{ x: 86, y: 0.5, w: 5, h: 12.5 }];
 const HATCHES = [['D01', 'D02'], ['D03', 'D04'], ['D05', 'D06']];
 
 const LABELS = [
-  { text: 'NORTH', x: 82, y: -24 },
+  { text: 'NORTH', x: 82, y: -28.6 },
   { text: 'EAST', x: 112, y: 25, rotate: 90 },
   { text: 'SOUTH', x: 40, y: 87.6 },
 ];
@@ -729,10 +729,10 @@ function drawSurroundings() {
 function draw() {
   let h = `<g>${drawSurroundings()}`;
   h += poly(VERGE, 'verge') + poly(TARMAC, 'paved');
-  for (const c of CORNERS) h += poly(c, 'corner');
   for (const f of FOOTWAYS) h += `<rect class="footway" x="${u(f.x)}" y="${u(f.y)}" width="${u(f.w)}" height="${u(f.h)}"/>`;
   h += `<path class="wall" d="M${pairs(WALL).map(([x, y]) => `${u(x)} ${u(y)}`).join('L')}"/>`;
   h += `<path class="fence" d="M${pairs(FENCE).map(([x, y]) => `${u(x)} ${u(y)}`).join('L')}"/>`;
+  for (const [x, y] of LAMPS) h += `<circle class="lamp" cx="${u(x)}" cy="${u(y)}" r="${u(0.45)}"/>`;
   for (const i of ISLANDS) {
     const bed = inset(clipY(i.kerb, i.bedFrom, true), 0.3);
     h += poly(i.kerb, 'island') + poly(clipY(i.kerb, i.bedFrom, false), 'island-path') +
