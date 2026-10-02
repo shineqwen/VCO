@@ -362,9 +362,10 @@ const BUILDING = { x: 0, y: 0, w: 80, h: 70 };
 // skip: [n, n] → leave out the first n bays on each side (numbering starts after them).
 // ev: [n, n] → the first n bays on each side are EV charging bays.
 const ROWS = [
-  // outer line along the north edge: 11 bays from the east corner to the building. It sits one bay
-  // depth higher than the top of the east outer line, with a grass corner between them.
-  { zone: 'North', rows: ['A'],      dir: 'h', x: 68.5, y: -24.5, bays: 11, face: 'south', reverse: true },
+  // outer line along the north edge: 11 bays, A01 ending in line with the front of the east outer
+  // line. It sits one bay depth higher than the top of that line; the grass corner above E01 holds
+  // the lamp post and the E letter, so A has its letter at the west end only.
+  { zone: 'North', rows: ['A'],      dir: 'h', x: 74.5, y: -24.5, bays: 11, face: 'south', reverse: true, tagGap: [3, null] },
   // inner double row, bay for bay opposite E09–E27. At its north end the first 5 bays on the C side
   // are the bike park and the first 6 on the D side are EV charging bays; a stone island closes its
   // south end, and the row letters there sit on its flower bed
@@ -378,14 +379,14 @@ const ROWS = [
 ];
 
 // Tarmac outline (x,y pairs). It stops at the backs of the north and east rows and, in the
-// north-east corner, along the front of A01 and the top of E01; in line with the building's east
-// wall the south boundary turns north-east at about 45°.
-const TARMAC = [62.5,-24.5, 96,-24.5, 96,-19.5, 107,-19.5, 107,57, 80,84, -8,84, -8,70, 0,70, 0,0, 62.5,0];
-// Mown grass behind the north and east rows and in the corner between them, up to the palisade fence
-const VERGE = [62.5,-26.5, 109,-26.5, 109,55, 107,57, 107,-19.5, 96,-19.5, 96,-24.5, 62.5,-24.5];
-const FENCE = [62.5,-26.5, 109,-26.5, 109,55];
-// Lamp posts worth showing: the one on the grass corner between A01 and E01
-const LAMPS = [[101.75, -21]];
+// north-east corner, at the end of A01 and the top of E01; in line with the building's east wall
+// the south boundary turns north-east at about 45°.
+const TARMAC = [68.5,-24.5, 102,-24.5, 102,-19.5, 107,-19.5, 107,57, 80,84, -8,84, -8,70, 0,70, 0,0, 68.5,0];
+// Mown grass behind the north and east rows and in the corner above E01, up to the palisade fence
+const VERGE = [68.5,-26.5, 109,-26.5, 109,55, 107,57, 107,-19.5, 102,-19.5, 102,-24.5, 68.5,-24.5];
+const FENCE = [68.5,-26.5, 109,-26.5, 109,55];
+// Lamp posts worth showing: the one on the grass corner, where A01 and E01 meet
+const LAMPS = [[102.8, -20.3]];
 // Pavement along the showroom's south wall
 const FOOTWAYS = [{ x: 0, y: 70, w: 80, h: 3 }];
 // Boundary wall; trees and then the estate road lie beyond it
@@ -405,7 +406,7 @@ const BIKE_PARKS = [{ x: 86, y: 0.5, w: 5, h: 12.5 }];
 const HATCHES = [['D01', 'D02'], ['D03', 'D04'], ['D05', 'D06']];
 
 const LABELS = [
-  { text: 'NORTH', x: 82, y: -28.6 },
+  { text: 'NORTH', x: 88, y: -28.6 },
   { text: 'EAST', x: 112, y: 25, rotate: 90 },
   { text: 'SOUTH', x: 40, y: 87.6 },
 ];
