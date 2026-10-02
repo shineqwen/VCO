@@ -145,6 +145,7 @@
   .wall { fill: none; stroke: #8e9399; stroke-width: 5; stroke-linejoin: round; stroke-linecap: round; }
   .island { fill: #e3e4e2; stroke: #a3a7ac; stroke-width: 2; stroke-linejoin: round; }
   .island-bed { fill: #c3d1b9; }
+  .zebra-base { fill: var(--paved); }
   .zebra { fill: #fff; }
   .road-edge { fill: none; stroke: #e9eaeb; }
   .road { fill: none; stroke: var(--road); }
@@ -327,14 +328,16 @@ const BUILDING = { x: 0, y: 0, w: 80, h: 70 };
 //   dir 'h': runs west→east, bays numbered west→east (reverse: true → east→west)
 //   dir 'v': runs north→south, bays numbered north→south (reverse: true → south→north)
 //   w / d: bay size along / across the row (default BAY_W × BAY_D)
+//   tagGap: [start, end] distance from the row's ends to its letter tags (default 3 m each)
 // Double rows: rows[0] is the north/west side and faces north/west, rows[1] faces south/east.
 // Single rows face `face` ('north', 'south', 'east' or 'west'): the way the cars' fronts point.
 // unmarked: true → no painted bays, just room for cars (drawn dashed).
 const ROWS = [
   // outer line along the north edge: 11 bays from the east corner to the building
   { zone: 'North', rows: ['A'],      dir: 'h', x: 68.5, y: -19.5, bays: 11, face: 'south', reverse: true },
-  // inner double row, bay for bay opposite E09–E27; a stone island closes its south end
-  { zone: 'East',  rows: ['C', 'D'], dir: 'v', x: 86,   y: 0.5,   bays: 19 },
+  // inner double row, bay for bay opposite E09–E27; a stone island closes its south end, and the
+  // row letters there sit on the island below the crossing
+  { zone: 'East',  rows: ['C', 'D'], dir: 'v', x: 86,   y: 0.5,   bays: 19, tagGap: [3, 5] },
   { zone: 'East',  rows: ['E'],      dir: 'v', x: 102,  y: -19.5, bays: 29, face: 'west' },    // outer line
   // south side, open space rather than a car park. From the showroom out: a pavement where cars
   // stand parallel to the showroom (F), a two-way road, then cars at right angles to the
@@ -350,11 +353,13 @@ const TARMAC = [62.5,-20.5, 108.5,-20.5, 108.5,55.5, 80,84, -8,84, -8,70, 0,70, 
 const FOOTWAYS = [{ x: 0, y: 70, w: 80, h: 3 }];
 // Boundary wall; trees and then the estate road lie beyond it
 const WALL = [0,84, 80,84, 108.5,55.5];
-// Kerbed stone islands (x,y pairs): across the south end of the inner double row, from E28 down
-// past the end of the outer line, its south-east corner cut parallel to the 45° boundary
-const ISLANDS = [[86,48, 96,48, 96,53, 91,58, 86,58]];
-// Zebra crossings, start and end of the walking line: from that island to the showroom wall
-const CROSSINGS = [[86,56.5, 80,56.5]];
+// Kerbed stone islands (x,y pairs), planted south of `bedFrom`. This one closes the south end of the
+// inner double row, from E28 down past the end of the outer line; its south-east corner is cut
+// parallel to the 45° boundary, and the crossing below runs along its top.
+const ISLANDS = [{ kerb: [86,48, 96,48, 96,53, 91,58, 86,58], bedFrom: 50.6 }];
+// Zebra crossings, 2.6 m wide; start and end of the walking line. Along the top of that island,
+// from its east end, then across the aisle to the showroom wall.
+const CROSSINGS = [[96,49.3, 80,49.3]];
 
 const LABELS = [
   { text: 'NORTH', x: 82, y: -24 },
@@ -586,15 +591,28 @@ function inset(flat, d) {
   });
 }
 
-// zebra crossing: 0.5 m white bars every metre along the walking line, 2.6 m wide
+// the part of a polygon south of the line y = y0
+function clipBelow(flat, y0) {
+  const p = pairs(flat), out = [];
+  p.forEach((a, i) => {
+    const b = p[(i + 1) % p.length];
+    if (a[1] >= y0) out.push(a[0], a[1]);
+    if ((a[1] < y0) !== (b[1] < y0)) out.push(a[0] + (y0 - a[1]) / (b[1] - a[1]) * (b[0] - a[0]), y0);
+  });
+  return out;
+}
+
+// zebra crossing: 0.5 m white bars every metre along the walking line, 2.6 m wide, on a strip of
+// tarmac (which shows where the crossing runs over an island)
 function zebra([ax, ay, bx, by]) {
   const len = Math.hypot(bx - ax, by - ay), ux = (bx - ax) / len, uy = (by - ay) / len, nx = -uy * 1.3, ny = ux * 1.3;
+  const quad = (x0, y0, x1, y1) => `M${u(x0 + nx)} ${u(y0 + ny)}L${u(x1 + nx)} ${u(y1 + ny)}L${u(x1 - nx)} ${u(y1 - ny)}L${u(x0 - nx)} ${u(y0 - ny)}Z`;
   let d = '';
   for (let s = 0.25; s + 0.5 <= len; s += 1) {
-    const x0 = ax + ux * s, y0 = ay + uy * s, x1 = x0 + ux * 0.5, y1 = y0 + uy * 0.5;
-    d += `M${u(x0 + nx)} ${u(y0 + ny)}L${u(x1 + nx)} ${u(y1 + ny)}L${u(x1 - nx)} ${u(y1 - ny)}L${u(x0 - nx)} ${u(y0 - ny)}Z`;
+    const x0 = ax + ux * s, y0 = ay + uy * s;
+    d += quad(x0, y0, x0 + ux * 0.5, y0 + uy * 0.5);
   }
-  return `<path class="zebra" d="${d}"/>`;
+  return `<path class="zebra-base" d="${quad(ax, ay, bx, by)}"/><path class="zebra" d="${d}"/>`;
 }
 
 function smoothPath(pts) {
@@ -644,7 +662,7 @@ function draw() {
   h += poly(TARMAC, 'paved');
   for (const f of FOOTWAYS) h += `<rect class="footway" x="${u(f.x)}" y="${u(f.y)}" width="${u(f.w)}" height="${u(f.h)}"/>`;
   h += `<path class="wall" d="M${pairs(WALL).map(([x, y]) => `${u(x)} ${u(y)}`).join('L')}"/>`;
-  for (const i of ISLANDS) h += poly(i, 'island') + poly(inset(i, 0.8), 'island-bed');
+  for (const i of ISLANDS) h += poly(i.kerb, 'island') + poly(inset(clipBelow(i.kerb, i.bedFrom), 0.8), 'island-bed');
   for (const c of CROSSINGS) h += zebra(c);
   const B = BUILDING, bx = u(B.x + B.w / 2), by = u(B.y + B.h / 2);
   h += `<rect class="bld" x="${u(B.x)}" y="${u(B.y)}" width="${u(B.w)}" height="${u(B.h)}"/>
@@ -673,12 +691,12 @@ function draw() {
 
   // row letters at both ends of every row
   for (const dr of ROWS) {
-    const w = dr.w || BAY_W, d = dr.d || BAY_D, len = dr.bays * w;
+    const w = dr.w || BAY_W, d = dr.d || BAY_D, len = dr.bays * w, [g0, g1] = dr.tagGap || [3, 3];
     dr.rows.forEach((row, side) => {
       const off = side * d + d / 2;
       const ends = dr.dir === 'h'
-        ? [[dr.x - 3, dr.y + off], [dr.x + len + 3, dr.y + off]]
-        : [[dr.x + off, dr.y - 3], [dr.x + off, dr.y + len + 3]];
+        ? [[dr.x - g0, dr.y + off], [dr.x + len + g1, dr.y + off]]
+        : [[dr.x + off, dr.y - g0], [dr.x + off, dr.y + len + g1]];
       for (const [x, y] of ends) {
         h += `<g class="tag"><circle cx="${u(x)}" cy="${u(y)}" r="${u(1.3)}"/><text x="${u(x)}" y="${u(y)}">${row}</text></g>`;
       }
