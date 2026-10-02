@@ -142,6 +142,7 @@
 
   .paved { fill: var(--paved); stroke: #b3b7bc; stroke-width: 3; stroke-linejoin: round; }
   .footway { fill: #e3e4e2; }
+  .wall { fill: none; stroke: #8e9399; stroke-width: 5; stroke-linejoin: round; stroke-linecap: round; }
   .road-edge { fill: none; stroke: #e9eaeb; }
   .road { fill: none; stroke: var(--road); }
   .road-line { fill: none; stroke: #fff; stroke-width: 1.5; stroke-dasharray: 30 40; opacity: .9; }
@@ -152,6 +153,7 @@
 
   .bay { cursor: pointer; }
   .bay > rect { fill: transparent; stroke: #fff; stroke-width: 1.2; }
+  .bay.unmarked > rect { stroke: #8e9399; stroke-width: .8; stroke-dasharray: 4 3; }   /* room for a car, no painted bay */
   @media (hover: hover) { .bay:hover > rect { fill: rgba(0, 120, 214, .16); } }
   .bay.sel > rect { fill: rgba(0, 120, 214, .22); }
   .bay use { transition: opacity .2s; }
@@ -316,39 +318,45 @@
 const BAY_W = 2.5;   // bay width
 const BAY_D = 5;     // bay depth
 
-const BUILDING = { x: 0, y: 0, w: 80, h: 39 };
+const BUILDING = { x: 0, y: 0, w: 80, h: 70 };
 
 // Rows of bays. Two letters = a double row (two rows back to back), one letter = a single row.
 //   dir 'h': runs west→east, bays numbered west→east (reverse: true → east→west)
 //   dir 'v': runs north→south, bays numbered north→south (reverse: true → south→north)
+//   w / d: bay size along / across the row (default BAY_W × BAY_D)
 // Double rows: rows[0] is the north/west side and faces north/west, rows[1] faces south/east.
-// Single rows face `face` ('north', 'south', 'east' or 'west'), i.e. towards their aisle.
+// Single rows face `face` ('north', 'south', 'east' or 'west'): the way the cars' fronts point.
+// unmarked: true → no painted bays, just room for cars (drawn dashed).
 const ROWS = [
   // outer line along the north edge: 11 bays from the east corner to the building
   { zone: 'North', rows: ['A'],      dir: 'h', x: 68.5, y: -19.5, bays: 11, face: 'south', reverse: true },
   { zone: 'East',  rows: ['C', 'D'], dir: 'v', x: 86,   y: 0,     bays: 20 },                  // inner double row
   { zone: 'East',  rows: ['E'],      dir: 'v', x: 102,  y: -19.5, bays: 29, face: 'west' },    // outer line
-  // in front of the showroom: three rows parallel to the south wall (F along the footpath,
-  // G/H back to back), and J at right angles to the wall, in line with the south-east corner
-  { zone: 'South', rows: ['F'],      dir: 'h', x: 0,    y: 41,    bays: 27, face: 'south' },
-  { zone: 'South', rows: ['G', 'H'], dir: 'h', x: 0,    y: 52,    bays: 27 },
-  { zone: 'South', rows: ['J'],      dir: 'v', x: 75,   y: 41,    bays: 8,  face: 'west' },
+  // south side, open space rather than a car park. From the showroom out: a pavement where cars
+  // stand parallel to the showroom (F), a two-way road, then cars at right angles to the
+  // boundary wall (G)
+  { zone: 'South', rows: ['F'],      dir: 'h', x: 1,    y: 70.25, bays: 13, w: 6, d: 2.5, face: 'east', unmarked: true },
+  { zone: 'South', rows: ['G'],      dir: 'h', x: 0,    y: 79,    bays: 31, face: 'north', unmarked: true },
 ];
 
-// Tarmac outline (x,y pairs). East of the building's south-east corner the edge runs
-// diagonally north-east with the main road (about 27° on the satellite image).
-const TARMAC = [62.5,-20.5, 108.5,-20.5, 108.5,53.5, 80,68, -8,68, -8,39, 0,39, 0,0, 62.5,0];
-// Paved footpath along the showroom's south wall
-const FOOTWAYS = [{ x: 0, y: 39, w: 80, h: 2 }];
+// Tarmac outline (x,y pairs). In line with the building's east wall the south boundary
+// turns north-east at about 45°.
+const TARMAC = [62.5,-20.5, 108.5,-20.5, 108.5,55.5, 80,84, -8,84, -8,70, 0,70, 0,0, 62.5,0];
+// Pavement along the showroom's south wall
+const FOOTWAYS = [{ x: 0, y: 70, w: 80, h: 3 }];
+// Centre line of the two-way road between the pavement and the cars along the wall
+const CENTRE_LINES = [[-6,76, 77,76]];
+// Boundary wall; trees and then the estate road lie beyond it
+const WALL = [0,84, 80,84, 108.5,55.5];
 
 const LABELS = [
   { text: 'NORTH', x: 82, y: -24 },
   { text: 'EAST', x: 112, y: 25, rotate: 90 },
-  { text: 'SOUTH', x: 34, y: 72.5 },
+  { text: 'SOUTH', x: 40, y: 87.6 },
 ];
 
 // Panning stops at this area (metres); zooming out never shows more than MAX_VIEW_H of height
-const AREA = { x0: -125, y0: -45, x1: 245, y1: 110 };
+const AREA = { x0: -125, y0: -45, x1: 245, y1: 118 };
 const MAX_VIEW_H = 290;
 
 /* Surroundings, for orientation only. Traced from the Google Earth screenshot
@@ -400,19 +408,24 @@ const SURROUNDINGS = {
   ],
   motorway: [-199.6,-63.4, 337.1,-102.5, 341.2,-46.9, 296.1,-45.4, 239.4,-46.5, 164,-45.7, 70,-40.2, -196.5,-21.7],
   median: [-197.9,-40.5, 338.8,-79.2],                                           // M50 centre line
-  roadTrees: [17.2,89.6, 26.2,88.2, 34.2,87, 41.8,85, 50.6,81.6, 59.6,78, 67.6,74, 85.6,62.2, 94.2,58.6,
-              102.2,55.6, 109.2,52.6, 115.2,50.6, 132.2,48.6, 40.6,102.2, 48.6,104.2, 56.6,100.2, 71.2,93.6,
-              85.8,85.6, 94.6,81, 101.2,77.6, 108.6,75, 115.8,72.2],
+  roadTrees: [                                                                   // along the estate road
+    0.2,91.1, 8.7,91, 17.2,91, 25.7,91, 34.2,91, 42.7,91, 51.2,91, 59.7,91, 68.2,91, 76,90.9, 81.6,89.8,
+    86.5,87.1, 91.2,82.7, 97.2,76.7, 103.2,70.7, 109.2,64.7, 118.8,57.5, 129.5,54,              // site side
+    -8.2,112.7, 42.7,112.6, 51.2,112.6, 59.7,112.6, 68.2,112.6, 77.4,112.5, 88.5,110.2, 98.5,105,
+    106.4,98,                                                                                    // far side
+  ],
 };
 
-// Main road centre line
-const ROAD = [-186.3,114.5, -88.8,106.8, -13.7,101.9, 21.5,97.8, 46.6,90.6, 63.2,84.8, 80,78.3, 96.5,71.8,
-              113.5,67.1, 130.7,64.3, 145.8,63.9, 231.4,64.3, 317.8,68, 349.9,69.4];
+// Estate road centre line. Next to the site it is drawn just beyond the boundary wall and
+// its trees, up to about 20 m further south than on the satellite image.
+const ROAD = [-186.3,114.5, -88.8,106.8, -13.7,101.9, 15,101.8, 45,101.8, 74.9,101.8, 78.9,101.5, 82.7,100.8,
+              86.4,99.5, 89.9,97.8, 93.2,95.6, 96.2,93, 106.9,82.3, 117.6,71.6, 120,69.5, 122.7,67.6, 125.7,66.2,
+              128.8,65.2, 132,64.5, 135.2,64.3, 145.8,63.9, 231.4,64.3, 317.8,68, 349.9,69.4];
 const ROAD_W = 10.5;
 
 /* =====================================================================
    2. STOCK  — one entry per parked car. `bay` must match a bay on the
-      map (A01 … J08). Leave empty to show generated demo cars.
+      map (A01 … G31). Leave empty to show generated demo cars.
    ===================================================================== */
 const STOCK = [
   // { bay: 'E07', reg: '262-D-99999', model: 'GLE 300 d', colour: 'Black' },
@@ -429,24 +442,29 @@ const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;
 /* ---------- bays ---------- */
 const bays = [];
 const bayById = new Map();
+const FACE = { north: [0, -1], south: [0, 1], west: [-1, 0], east: [1, 0] };
 for (const dr of ROWS) {
-  const single = dr.rows.length === 1;
+  const w = dr.w || BAY_W, d = dr.d || BAY_D;
   dr.rows.forEach((row, side) => {
-    const out = single ? (dr.face === 'south' || dr.face === 'east' ? 1 : -1) : (side ? 1 : -1);
+    // (fx, fy) = direction the car's front faces; a double row faces out towards both aisles
+    const [fx, fy] = dr.rows.length === 1 ? FACE[dr.face]
+      : dr.dir === 'h' ? [0, side ? 1 : -1] : [side ? 1 : -1, 0];
     for (let i = 0; i < dr.bays; i++) {
       const k = dr.reverse ? dr.bays - 1 - i : i;          // position along the row
       const b = dr.dir === 'h'
-        ? { x: dr.x + k * BAY_W, y: dr.y + side * BAY_D, w: BAY_W, h: BAY_D, fx: 0, fy: out }
-        : { x: dr.x + side * BAY_D, y: dr.y + k * BAY_W, w: BAY_D, h: BAY_W, fx: out, fy: 0 };
-      // (fx, fy) = direction the car's front faces: out towards the aisle
+        ? { x: dr.x + k * w, y: dr.y + side * d, w, h: d, fx, fy }
+        : { x: dr.x + side * d, y: dr.y + k * w, w: d, h: w, fx, fy };
       b.id = row + String(i + 1).padStart(2, '0');
-      b.row = row; b.zone = dr.zone; b.dir = dr.dir; b.order = bays.length;
+      b.row = row; b.zone = dr.zone; b.unmarked = !!dr.unmarked; b.order = bays.length;
       b.cx = b.x + b.w / 2; b.cy = b.y + b.h / 2;
       b.rot = Math.atan2(b.fy, b.fx) * 180 / Math.PI;
       bays.push(b); bayById.set(b.id, b);
     }
   });
 }
+
+// "East car park"; open space without painted bays is just "South side"
+const areaName = b => b.zone + (b.unmarked ? ' side' : ' car park');
 
 /* ---------- cars ---------- */
 const PAINT = [
@@ -593,6 +611,8 @@ function draw() {
   let h = `<g>${drawSurroundings()}`;
   h += poly(TARMAC, 'paved');
   for (const f of FOOTWAYS) h += `<rect class="footway" x="${u(f.x)}" y="${u(f.y)}" width="${u(f.w)}" height="${u(f.h)}"/>`;
+  for (const l of CENTRE_LINES) h += `<path class="road-line" d="M${pairs(l).map(([x, y]) => `${u(x)} ${u(y)}`).join('L')}"/>`;
+  h += `<path class="wall" d="M${pairs(WALL).map(([x, y]) => `${u(x)} ${u(y)}`).join('L')}"/>`;
   const B = BUILDING, bx = u(B.x + B.w / 2), by = u(B.y + B.h / 2);
   h += `<rect class="bld" x="${u(B.x)}" y="${u(B.y)}" width="${u(B.w)}" height="${u(B.h)}"/>
     <text class="bld-name" x="${bx}" y="${by - 6}">MERCEDES-BENZ</text>
@@ -604,12 +624,12 @@ function draw() {
 
   for (const b of bays) {
     const c = carAt.get(b.id);
-    h += `<g class="bay" data-id="${b.id}"><rect x="${u(b.x)}" y="${u(b.y)}" width="${u(b.w)}" height="${u(b.h)}"/>`;
+    h += `<g class="bay${b.unmarked ? ' unmarked' : ''}" data-id="${b.id}"><rect x="${u(b.x)}" y="${u(b.y)}" width="${u(b.w)}" height="${u(b.h)}"/>`;
     if (c) {
       h += `<use href="#car" fill="${c.hex}" transform="translate(${u(b.cx)} ${u(b.cy)}) rotate(${b.rot}) scale(${c.sx} ${c.sy})"/>`;
       const px = b.cx - b.fx * 0.6, py = b.cy - b.fy * 0.6;       // plate: nudged to the inner end
       const pw = u(c.reg.length * 0.22 + 0.4);
-      h += `<g class="plate" transform="translate(${u(px)} ${u(py)})${b.dir === 'h' ? ' rotate(-90)' : ''}">` +
+      h += `<g class="plate" transform="translate(${u(px)} ${u(py)})${b.fx === 0 ? ' rotate(-90)' : ''}">` +
            `<rect x="${-pw / 2}" y="-3.5" width="${pw}" height="7" rx="1"/><text>${esc(c.reg)}</text></g>`;
     }
     // bay number: centred (zoom level 2), or at the aisle end next to the plate (level 3)
@@ -620,9 +640,9 @@ function draw() {
 
   // row letters at both ends of every row
   for (const dr of ROWS) {
-    const len = dr.bays * BAY_W;
+    const w = dr.w || BAY_W, d = dr.d || BAY_D, len = dr.bays * w;
     dr.rows.forEach((row, side) => {
-      const off = side * BAY_D + BAY_D / 2;
+      const off = side * d + d / 2;
       const ends = dr.dir === 'h'
         ? [[dr.x - 3, dr.y + off], [dr.x + len + 3, dr.y + off]]
         : [[dr.x + off, dr.y - 3], [dr.x + off, dr.y + len + 3]];
@@ -652,7 +672,7 @@ let W = 0, H = 0, kMin = 1, fitted = true;
 const K_MAX = 40;
 
 const xs = pairs(TARMAC).map(p => p[0]), ys = pairs(TARMAC).map(p => p[1]);
-const CONTENT = { x0: Math.min(...xs) - 2, y0: Math.min(...ys) - 6, x1: Math.max(...xs) + 6, y1: Math.max(...ys) + 6 };
+const CONTENT = { x0: Math.min(...xs) - 2, y0: Math.min(...ys) - 6, x1: Math.max(...xs) + 6, y1: Math.max(...ys) + 10 };   // + the trees past the south wall
 const EXTENT = AREA;
 
 const clampK = k => Math.min(K_MAX, Math.max(kMin, k));
@@ -917,7 +937,7 @@ function select(id, { fly = false } = {}) {
   sw.style.background = c ? c.hex : '';
   sw.classList.toggle('empty', !c);
   $('#card-bay').textContent = id;
-  $('#card-zone').textContent = `${b.zone} car park · row ${b.row}`;
+  $('#card-zone').textContent = `${areaName(b)} · row ${b.row}`;
   card.hidden = false;
   setHash(c && c.key ? c.key : id);
   if (fly) flyToBay(b);
@@ -986,7 +1006,7 @@ function renderResults() {
       return `<li role="option" data-i="${i}"${i === active ? ' class="active" aria-selected="true"' : ''}>` +
         `<span class="swatch${c ? '' : ' empty'}"${c ? ` style="background:${c.hex}"` : ''}></span>` +
         `<span class="r-main"><span class="r-reg">${c ? esc(c.reg) : 'Empty bay'}</span>` +
-        `<span class="r-sub">${c ? esc([c.model, c.colour].filter(Boolean).join(' · ')) : esc(h.b.zone + ' car park')}</span></span>` +
+        `<span class="r-sub">${c ? esc([c.model, c.colour].filter(Boolean).join(' · ')) : esc(areaName(h.b))}</span></span>` +
         `<span class="pill">${h.b.id}</span></li>`;
     }).join('') + (hits.length > shown.length ? `<li class="r-note">+ ${hits.length - shown.length} more, keep typing</li>` : '');
   }
