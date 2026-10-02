@@ -143,9 +143,11 @@
   .paved { fill: var(--paved); stroke: #b3b7bc; stroke-width: 3; stroke-linejoin: round; }
   .footway { fill: #e3e4e2; }
   .wall { fill: none; stroke: #8e9399; stroke-width: 5; stroke-linejoin: round; stroke-linecap: round; }
-  .island { fill: #e3e4e2; stroke: #a3a7ac; stroke-width: 2; stroke-linejoin: round; }
+  .island { fill: #e3e4e2; }                                   /* concrete kerbs */
+  .island-edge { fill: none; stroke: #a3a7ac; stroke-width: 2; stroke-linejoin: round; }
+  .island-path { fill: url(#brick); }                          /* grey brick footpath */
   .island-bed { fill: #c3d1b9; }
-  .zebra-base { fill: var(--paved); }
+  .flower { stroke: rgba(0, 0, 0, .2); stroke-width: .3; }
   .zebra { fill: #fff; }
   .road-edge { fill: none; stroke: #e9eaeb; }
   .road { fill: none; stroke: var(--road); }
@@ -274,6 +276,11 @@
         <path fill="#2b3440"
               d="M12.6-7.8Q14.2 0 12.6 7.8L5.6 6.6Q6.3 0 5.6-6.6ZM-12-6.6Q-12.6 0-12 6.6L-17 7.4Q-18.2 0-17-7.4ZM5-7.7-11.4-7.4V-8.3L4.2-8.7ZM5 7.7-11.4 7.4V8.3L4.2 8.7Z"/>
       </g>
+      <!-- grey block paving: 0.4 × 0.2 m bricks in running bond -->
+      <pattern id="brick" width="8" height="4" patternUnits="userSpaceOnUse">
+        <rect width="8" height="4" fill="#b9bcc0"/>
+        <path d="M0 1H8M0 3H8M1 1V3M5 1V3M3 3V4M7 3V4M3 0V1M7 0V1" fill="none" stroke="#a4a8ad" stroke-width=".35"/>
+      </pattern>
     </defs>
     <g id="world"></g>
   </svg>
@@ -336,7 +343,7 @@ const ROWS = [
   // outer line along the north edge: 11 bays from the east corner to the building
   { zone: 'North', rows: ['A'],      dir: 'h', x: 68.5, y: -19.5, bays: 11, face: 'south', reverse: true },
   // inner double row, bay for bay opposite E09–E27; a stone island closes its south end, and the
-  // row letters there sit on the island below the crossing
+  // row letters there sit on its flower bed
   { zone: 'East',  rows: ['C', 'D'], dir: 'v', x: 86,   y: 0.5,   bays: 19, tagGap: [3, 5] },
   { zone: 'East',  rows: ['E'],      dir: 'v', x: 102,  y: -19.5, bays: 29, face: 'west' },    // outer line
   // south side, open space rather than a car park. From the showroom out: a pavement where cars
@@ -353,13 +360,14 @@ const TARMAC = [62.5,-20.5, 108.5,-20.5, 108.5,55.5, 80,84, -8,84, -8,70, 0,70, 
 const FOOTWAYS = [{ x: 0, y: 70, w: 80, h: 3 }];
 // Boundary wall; trees and then the estate road lie beyond it
 const WALL = [0,84, 80,84, 108.5,55.5];
-// Kerbed stone islands (x,y pairs), planted south of `bedFrom`. This one closes the south end of the
-// inner double row, from E28 down past the end of the outer line; its south-east corner is cut
-// parallel to the 45° boundary, and the crossing below runs along its top.
+// Kerbed stone islands (x,y pairs). This one closes the south end of the inner double row, from E28
+// down past the end of the outer line; its south-east corner is cut parallel to the 45° boundary.
+// North of `bedFrom` it is a grey brick footpath (the zebra below carries it on across the aisle),
+// south of it a flower bed.
 const ISLANDS = [{ kerb: [86,48, 96,48, 96,53, 91,58, 86,58], bedFrom: 50.6 }];
-// Zebra crossings, 2.6 m wide; start and end of the walking line. Along the top of that island,
-// from its east end, then across the aisle to the showroom wall.
-const CROSSINGS = [[96,49.3, 80,49.3]];
+// Zebra crossings, 2.6 m wide; start and end of the walking line: from that island's footpath
+// across the aisle to the showroom wall
+const CROSSINGS = [[86,49.3, 80,49.3]];
 
 const LABELS = [
   { text: 'NORTH', x: 82, y: -24 },
@@ -591,28 +599,41 @@ function inset(flat, d) {
   });
 }
 
-// the part of a polygon south of the line y = y0
-function clipBelow(flat, y0) {
-  const p = pairs(flat), out = [];
+// the part of a polygon south (below = true) or north of the line y = y0
+function clipY(flat, y0, below) {
+  const p = pairs(flat), out = [], keep = y => below ? y >= y0 : y <= y0;
   p.forEach((a, i) => {
     const b = p[(i + 1) % p.length];
-    if (a[1] >= y0) out.push(a[0], a[1]);
-    if ((a[1] < y0) !== (b[1] < y0)) out.push(a[0] + (y0 - a[1]) / (b[1] - a[1]) * (b[0] - a[0]), y0);
+    if (keep(a[1])) out.push(a[0], a[1]);
+    if ((a[1] - y0) * (b[1] - y0) < 0) out.push(a[0] + (y0 - a[1]) / (b[1] - a[1]) * (b[0] - a[0]), y0);
   });
   return out;
 }
 
-// zebra crossing: 0.5 m white bars every metre along the walking line, 2.6 m wide, on a strip of
-// tarmac (which shows where the crossing runs over an island)
+// flowers dotted over a bed on a jittered grid (the same on every load)
+function flowers(bed) {
+  const p = pairs(bed), xs = p.map(q => q[0]), ys = p.map(q => q[1]), safe = inset(bed, 0.35);
+  const COLOURS = ['#e2b53a', '#a284c4', '#fbfaf4'];
+  let h = '', n = 0;
+  for (let y = Math.min(...ys) + 0.6; y < Math.max(...ys); y += 1.1) {
+    for (let x = Math.min(...xs) + 0.6; x < Math.max(...xs); x += 1.25, n++) {
+      const q = [x + Math.sin(n * 12.99) * 0.35, y + Math.cos(n * 7.23) * 0.3];
+      const fill = COLOURS[Math.floor((Math.sin(n * 3.7) + 1) * 1.5) % 3];
+      if (inside(q, safe)) h += `<circle class="flower" cx="${u(q[0])}" cy="${u(q[1])}" r="${u(0.24)}" fill="${fill}"/>`;
+    }
+  }
+  return h;
+}
+
+// zebra crossing: 0.5 m white bars every metre along the walking line, 2.6 m wide
 function zebra([ax, ay, bx, by]) {
   const len = Math.hypot(bx - ax, by - ay), ux = (bx - ax) / len, uy = (by - ay) / len, nx = -uy * 1.3, ny = ux * 1.3;
-  const quad = (x0, y0, x1, y1) => `M${u(x0 + nx)} ${u(y0 + ny)}L${u(x1 + nx)} ${u(y1 + ny)}L${u(x1 - nx)} ${u(y1 - ny)}L${u(x0 - nx)} ${u(y0 - ny)}Z`;
   let d = '';
   for (let s = 0.25; s + 0.5 <= len; s += 1) {
-    const x0 = ax + ux * s, y0 = ay + uy * s;
-    d += quad(x0, y0, x0 + ux * 0.5, y0 + uy * 0.5);
+    const x0 = ax + ux * s, y0 = ay + uy * s, x1 = x0 + ux * 0.5, y1 = y0 + uy * 0.5;
+    d += `M${u(x0 + nx)} ${u(y0 + ny)}L${u(x1 + nx)} ${u(y1 + ny)}L${u(x1 - nx)} ${u(y1 - ny)}L${u(x0 - nx)} ${u(y0 - ny)}Z`;
   }
-  return `<path class="zebra-base" d="${quad(ax, ay, bx, by)}"/><path class="zebra" d="${d}"/>`;
+  return `<path class="zebra" d="${d}"/>`;
 }
 
 function smoothPath(pts) {
@@ -662,7 +683,11 @@ function draw() {
   h += poly(TARMAC, 'paved');
   for (const f of FOOTWAYS) h += `<rect class="footway" x="${u(f.x)}" y="${u(f.y)}" width="${u(f.w)}" height="${u(f.h)}"/>`;
   h += `<path class="wall" d="M${pairs(WALL).map(([x, y]) => `${u(x)} ${u(y)}`).join('L')}"/>`;
-  for (const i of ISLANDS) h += poly(i.kerb, 'island') + poly(inset(clipBelow(i.kerb, i.bedFrom), 0.8), 'island-bed');
+  for (const i of ISLANDS) {
+    const bed = inset(clipY(i.kerb, i.bedFrom, true), 0.3);
+    h += poly(i.kerb, 'island') + poly(clipY(i.kerb, i.bedFrom, false), 'island-path') +
+         poly(bed, 'island-bed') + flowers(bed) + poly(i.kerb, 'island-edge');
+  }
   for (const c of CROSSINGS) h += zebra(c);
   const B = BUILDING, bx = u(B.x + B.w / 2), by = u(B.y + B.h / 2);
   h += `<rect class="bld" x="${u(B.x)}" y="${u(B.y)}" width="${u(B.w)}" height="${u(B.h)}"/>
