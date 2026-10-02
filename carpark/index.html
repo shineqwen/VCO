@@ -143,6 +143,9 @@
   .paved { fill: var(--paved); stroke: #b3b7bc; stroke-width: 3; stroke-linejoin: round; }
   .footway { fill: #e3e4e2; }
   .wall { fill: none; stroke: #8e9399; stroke-width: 5; stroke-linejoin: round; stroke-linecap: round; }
+  .verge { fill: #d8e3cd; }                                    /* mown grass */
+  .fence { fill: none; stroke: #7b8188; stroke-width: 2; stroke-linejoin: round; }
+  .corner { fill: #d8e3cd; stroke: #a3a7ac; stroke-width: 2; stroke-linejoin: round; }
   .island { fill: #e3e4e2; }                                   /* concrete kerbs */
   .island-edge { fill: none; stroke: #a3a7ac; stroke-width: 2; stroke-linejoin: round; }
   .island-path { fill: url(#brick); }                          /* grey brick footpath */
@@ -351,20 +354,22 @@ const BUILDING = { x: 0, y: 0, w: 80, h: 70 };
 //   dir 'h': runs west→east, bays numbered west→east (reverse: true → east→west)
 //   dir 'v': runs north→south, bays numbered north→south (reverse: true → south→north)
 //   w / d: bay size along / across the row (default BAY_W × BAY_D)
-//   tagGap: [start, end] distance from the row's ends to its letter tags (default 3 m each)
+//   tagGap: [start, end] distance from the row's ends to its letter tags (default 3 m each);
+//     [along, across] also moves a tag sideways, null leaves that end without one
 // Double rows: rows[0] is the north/west side and faces north/west, rows[1] faces south/east.
 // Single rows face `face` ('north', 'south', 'east' or 'west'): the way the cars' fronts point.
 // unmarked: true → no painted bays, just room for cars (drawn dashed).
 // skip: [n, n] → leave out the first n bays on each side (numbering starts after them).
 // ev: [n, n] → the first n bays on each side are EV charging bays.
 const ROWS = [
-  // outer line along the north edge: 11 bays from the east corner to the building
-  { zone: 'North', rows: ['A'],      dir: 'h', x: 68.5, y: -19.5, bays: 11, face: 'south', reverse: true },
+  // outer line along the north edge: 11 bays from the east corner to the building; at the east end
+  // its letter sits on the grass corner
+  { zone: 'North', rows: ['A'],      dir: 'h', x: 68.5, y: -19.5, bays: 11, face: 'south', reverse: true, tagGap: [3, [1.6, -0.9]] },
   // inner double row, bay for bay opposite E09–E27. At its north end the first 5 bays on the C side
   // are the bike park and the first 6 on the D side are EV charging bays; a stone island closes its
   // south end, and the row letters there sit on its flower bed
   { zone: 'East',  rows: ['C', 'D'], dir: 'v', x: 86,   y: 0.5,   bays: 19, skip: [5, 0], ev: [0, 6], tagGap: [3, 5] },
-  { zone: 'East',  rows: ['E'],      dir: 'v', x: 102,  y: -19.5, bays: 29, face: 'west' },    // outer line
+  { zone: 'East',  rows: ['E'],      dir: 'v', x: 102,  y: -19.5, bays: 29, face: 'west', tagGap: [null, 3] },   // outer line
   // south side, open space rather than a car park. From the showroom out: a pavement where cars
   // stand parallel to the showroom (F), a two-way road, then cars at right angles to the
   // boundary wall (G)
@@ -372,13 +377,19 @@ const ROWS = [
   { zone: 'South', rows: ['G'],      dir: 'h', x: 0,    y: 79,    bays: 31, face: 'north', unmarked: true },
 ];
 
-// Tarmac outline (x,y pairs). In line with the building's east wall the south boundary
-// turns north-east at about 45°.
-const TARMAC = [62.5,-20.5, 108.5,-20.5, 108.5,55.5, 80,84, -8,84, -8,70, 0,70, 0,0, 62.5,0];
+// Tarmac outline (x,y pairs). It stops at the backs of the north and east rows; in line with the
+// building's east wall the south boundary turns north-east at about 45°.
+const TARMAC = [62.5,-19.5, 107,-19.5, 107,57, 80,84, -8,84, -8,70, 0,70, 0,0, 62.5,0];
+// Mown grass behind the north and east rows, up to the palisade fence
+const VERGE = [62.5,-21.5, 109,-21.5, 109,55, 107,57, 107,-19.5, 62.5,-19.5];
+const FENCE = [62.5,-21.5, 109,-21.5, 109,55];
+// Kerbed grass corners (x,y pairs): north-east, between A01 and E01, its edge from the front of
+// A01 to the front of E01
+const CORNERS = [[96,-19.5, 102,-19.5, 96,-14.5]];
 // Pavement along the showroom's south wall
 const FOOTWAYS = [{ x: 0, y: 70, w: 80, h: 3 }];
 // Boundary wall; trees and then the estate road lie beyond it
-const WALL = [0,84, 80,84, 108.5,55.5];
+const WALL = [0,84, 80,84, 109,55];
 // Kerbed stone islands (x,y pairs). This one closes the south end of the inner double row, from E28
 // down past the end of the outer line; its south-east corner is cut parallel to the 45° boundary.
 // North of `bedFrom` it is a grey brick footpath (the zebra below carries it on across the aisle),
@@ -717,9 +728,11 @@ function drawSurroundings() {
 
 function draw() {
   let h = `<g>${drawSurroundings()}`;
-  h += poly(TARMAC, 'paved');
+  h += poly(VERGE, 'verge') + poly(TARMAC, 'paved');
+  for (const c of CORNERS) h += poly(c, 'corner');
   for (const f of FOOTWAYS) h += `<rect class="footway" x="${u(f.x)}" y="${u(f.y)}" width="${u(f.w)}" height="${u(f.h)}"/>`;
   h += `<path class="wall" d="M${pairs(WALL).map(([x, y]) => `${u(x)} ${u(y)}`).join('L')}"/>`;
+  h += `<path class="fence" d="M${pairs(FENCE).map(([x, y]) => `${u(x)} ${u(y)}`).join('L')}"/>`;
   for (const i of ISLANDS) {
     const bed = inset(clipY(i.kerb, i.bedFrom, true), 0.3);
     h += poly(i.kerb, 'island') + poly(clipY(i.kerb, i.bedFrom, false), 'island-path') +
@@ -761,12 +774,15 @@ function draw() {
 
   // row letters at both ends of every row
   for (const dr of ROWS) {
-    const w = dr.w || BAY_W, d = dr.d || BAY_D, len = dr.bays * w, [g0, g1] = dr.tagGap || [3, 3];
+    const w = dr.w || BAY_W, d = dr.d || BAY_D, len = dr.bays * w;
+    const gaps = (dr.tagGap || [3, 3]).map(g => g == null ? null : Array.isArray(g) ? g : [g, 0]);   // [along, across]
     dr.rows.forEach((row, side) => {
-      const off = side * d + d / 2;
-      const ends = dr.dir === 'h'
-        ? [[dr.x - g0, dr.y + off], [dr.x + len + g1, dr.y + off]]
-        : [[dr.x + off, dr.y - g0], [dr.x + off, dr.y + len + g1]];
+      const off = side * d + d / 2, ends = [];
+      gaps.forEach((g, end) => {
+        if (!g) return;                                     // no letter at this end
+        const a = end ? len + g[0] : -g[0];
+        ends.push(dr.dir === 'h' ? [dr.x + a, dr.y + off + g[1]] : [dr.x + off + g[1], dr.y + a]);
+      });
       for (const [x, y] of ends) {
         h += `<g class="tag"><circle cx="${u(x)}" cy="${u(y)}" r="${u(1.3)}"/><text x="${u(x)}" y="${u(y)}">${row}</text></g>`;
       }
