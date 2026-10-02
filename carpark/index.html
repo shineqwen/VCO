@@ -149,8 +149,9 @@
   .island-bed { fill: #c3d1b9; }
   .flower { stroke: rgba(0, 0, 0, .2); stroke-width: .3; }
   .zebra { fill: #fff; }
-  .bike-park { fill: #e3e4e2; stroke: #a3a7ac; stroke-width: 2; }
-  .bike-shelter { fill: #6c7279; }
+  .kerb { fill: #e3e4e2; stroke: #b3b7bc; stroke-width: .5; }
+  .bike-shelter { fill: #40464d; }
+  .bike-stand { fill: none; stroke: #6f767e; stroke-width: 1.2; stroke-linecap: round; }
   .road-edge { fill: none; stroke: #e9eaeb; }
   .road { fill: none; stroke: var(--road); }
   .road-line { fill: none; stroke: #fff; stroke-width: 1.5; stroke-dasharray: 30 40; opacity: .9; }
@@ -162,12 +163,13 @@
   .bay { cursor: pointer; }
   .bay > rect { fill: transparent; stroke: #fff; stroke-width: 1.2; }
   .bay.unmarked > rect { stroke: #8e9399; stroke-width: .8; stroke-dasharray: 4 3; }   /* room for a car, no painted bay */
-  .bay.ev > rect { fill: rgba(31, 138, 76, .3); }                                     /* EV charging */
-  .ev-bolt { fill: #1f8a4c; }
   @media (hover: hover) { .bay:hover > rect { fill: rgba(0, 120, 214, .16); } }
   .bay.sel > rect { fill: rgba(0, 120, 214, .22); }
   .bay use { transition: opacity .2s; }
   #map.searching .bay:not(.hit) use { opacity: .25; }
+  .hatch { pointer-events: none; }
+  .hatch rect { fill: var(--paved); }
+  .hatch rect, .hatch path { stroke: #fff; stroke-width: 1.2; }
   #map.searching .bay.hit > rect { fill: rgba(0, 120, 214, .3); }
 
   /* zoom level 2: bay numbers; level 3: number moves to the inner end + number plates */
@@ -280,8 +282,11 @@
         <path fill="#2b3440"
               d="M12.6-7.8Q14.2 0 12.6 7.8L5.6 6.6Q6.3 0 5.6-6.6ZM-12-6.6Q-12.6 0-12 6.6L-17 7.4Q-18.2 0-17-7.4ZM5-7.7-11.4-7.4V-8.3L4.2-8.7ZM5 7.7-11.4 7.4V8.3L4.2 8.7Z"/>
       </g>
-      <!-- EV charging sign painted in the bay, 0.7 × 1.3 m -->
-      <path id="bolt" d="M1.5-6.5-3.5 1H0L-1.5 6.5 3.5-1H0Z"/>
+      <!-- EV charging bay road marking, plug and "e": 2 × 0.7 m, reading along +x -->
+      <g id="ev-mark" fill="#fff">
+        <path d="M-11-2.6h2.2v1.2h-2.2zM-11 1.4h2.2v1.2h-2.2zM-8.8-3.5h3.3a3.5 3.5 0 0 1 0 7h-3.3zM-2-.55h4v1.1h-4z"/>
+        <path d="M2 0H8.4A3.2 3.2 0 1 0 7.65 2.06" fill="none" stroke="#fff" stroke-width="1.4"/>
+      </g>
       <!-- bicycle sign, 3.4 m wide -->
       <g id="bicycle" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="-10" cy="3" r="7"/><circle cx="10" cy="3" r="7"/>
@@ -356,9 +361,9 @@ const ROWS = [
   // outer line along the north edge: 11 bays from the east corner to the building
   { zone: 'North', rows: ['A'],      dir: 'h', x: 68.5, y: -19.5, bays: 11, face: 'south', reverse: true },
   // inner double row, bay for bay opposite E09–E27. At its north end the first 5 bays on the C side
-  // are the bike park and the first 5 on the D side are EV charging bays; a stone island closes its
+  // are the bike park and the first 6 on the D side are EV charging bays; a stone island closes its
   // south end, and the row letters there sit on its flower bed
-  { zone: 'East',  rows: ['C', 'D'], dir: 'v', x: 86,   y: 0.5,   bays: 19, skip: [5, 0], ev: [0, 5], tagGap: [3, 5] },
+  { zone: 'East',  rows: ['C', 'D'], dir: 'v', x: 86,   y: 0.5,   bays: 19, skip: [5, 0], ev: [0, 6], tagGap: [3, 5] },
   { zone: 'East',  rows: ['E'],      dir: 'v', x: 102,  y: -19.5, bays: 29, face: 'west' },    // outer line
   // south side, open space rather than a car park. From the showroom out: a pavement where cars
   // stand parallel to the showroom (F), a two-way road, then cars at right angles to the
@@ -382,8 +387,11 @@ const ISLANDS = [{ kerb: [86,48, 96,48, 96,53, 91,58, 86,58], bedFrom: 50.6 }];
 // Zebra crossings, 2.6 m wide; start and end of the walking line: from that island's footpath
 // across the aisle to the showroom wall
 const CROSSINGS = [[86,49.3, 80,49.3]];
-// Bike parks (x, y, w, h): a shelter in place of the first 5 bays on the C side of the inner double row
+// Bike parks (x, y, w, h): a long shelter and stands in place of the first 5 bays on the C side of
+// the inner double row, with a kerb between it and the EV bays on its east side
 const BIKE_PARKS = [{ x: 86, y: 0.5, w: 5, h: 12.5 }];
+// Hatched strips between neighbouring bays: the EV bays go single, double, double, single
+const HATCHES = [['D01', 'D02'], ['D03', 'D04'], ['D05', 'D06']];
 
 const LABELS = [
   { text: 'NORTH', x: 82, y: -24 },
@@ -551,13 +559,12 @@ function demoStock() {
     ['GLC 220 d', 9], ['GLC 300 de', 4], ['E 220 d', 5], ['E 300 e', 3], ['EQE 300', 2], ['EQE SUV 350+', 1],
     ['GLE 300 d', 4], ['GLE 450 d', 2], ['G 450 d', 1], ['S 450 d', 1], ['EQS 450+', 1], ['GLS 450 d', 1],
   ];
-  const PLUG_IN = MODELS.filter(([m]) => /^EQ|\+$| d?e$/.test(m));     // for the EV charging bays
   const COLOURS = [['Black', 24], ['Grey', 22], ['White', 14], ['Silver', 12], ['Blue', 10], ['Red', 4], ['Green', 3]];
   const COUNTIES = [['D', 70], ['MH', 6], ['KE', 6], ['WW', 3], ['LH', 3], ['C', 2], ['G', 2], ['WH', 2], ['KK', 1], ['CN', 1], ['LS', 1]];
   const used = new Set(['262D99999']);
   const out = [];
   for (const b of bays) {
-    if (rnd() > 0.8) continue;
+    if (b.ev || rnd() > 0.8) continue;                  // EV charging bays stay empty for now
     let reg;
     do {
       const isNew = rnd() < 0.45;
@@ -567,7 +574,7 @@ function demoStock() {
       reg = `${year}${half}-${county}-${1 + Math.floor(rnd() * (county === 'D' ? 99999 : 9999))}`;
     } while (used.has(norm(reg)));
     used.add(norm(reg));
-    out.push({ bay: b.id, reg, model: pick(b.ev ? PLUG_IN : MODELS), colour: pick(COLOURS) });
+    out.push({ bay: b.id, reg, model: pick(MODELS), colour: pick(COLOURS) });
   }
   // the example from the brief
   const ex = { bay: 'E07', reg: '262-D-99999', model: 'GLE 300 d', colour: 'Black' };
@@ -644,6 +651,17 @@ function flowers(bed) {
   return h;
 }
 
+// 0.8 m hatched strip (white outline and rungs) on the line between two neighbouring bays
+function hatch(a, b) {
+  const mx = (a.cx + b.cx) / 2, my = (a.cy + b.cy) / 2, ns = Math.abs(a.cx - b.cx) < 0.01;   // ns: row runs north–south
+  const w = ns ? a.w : 0.8, h = ns ? 0.8 : a.h, len = ns ? w : h;
+  let d = '';
+  for (let s = 0.7; s < len - 0.3; s += 0.7) {
+    d += ns ? `M${u(mx - w / 2 + s)} ${u(my - 0.4)}V${u(my + 0.4)}` : `M${u(mx - 0.4)} ${u(my - h / 2 + s)}H${u(mx + 0.4)}`;
+  }
+  return `<g class="hatch"><rect x="${u(mx - w / 2)}" y="${u(my - h / 2)}" width="${u(w)}" height="${u(h)}"/><path d="${d}"/></g>`;
+}
+
 // zebra crossing: 0.5 m white bars every metre along the walking line, 2.6 m wide
 function zebra([ax, ay, bx, by]) {
   const len = Math.hypot(bx - ax, by - ay), ux = (bx - ax) / len, uy = (by - ay) / len, nx = -uy * 1.3, ny = ux * 1.3;
@@ -709,10 +727,10 @@ function draw() {
   }
   for (const c of CROSSINGS) h += zebra(c);
   for (const b of BIKE_PARKS) {
-    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
-    h += `<rect class="bike-park" x="${u(b.x)}" y="${u(b.y)}" width="${u(b.w)}" height="${u(b.h)}" rx="${u(0.4)}"/>` +
-         `<rect class="bike-shelter" x="${u(b.x + 0.5)}" y="${u(cy - 3.5)}" width="${u(b.w - 1)}" height="${u(7)}" rx="${u(0.6)}"/>` +
-         `<use href="#bicycle" transform="translate(${u(cx)} ${u(cy)})"/>`;
+    h += `<rect class="kerb" x="${u(b.x + b.w - 0.15)}" y="${u(b.y)}" width="${u(0.3)}" height="${u(b.h)}"/>`;
+    for (let y = b.y + 1.4; y < b.y + b.h - 0.8; y += 1.2) h += `<path class="bike-stand" d="M${u(b.x + 3.7)} ${u(y)}H${u(b.x + 4.5)}"/>`;
+    h += `<rect class="bike-shelter" x="${u(b.x + 0.4)}" y="${u(b.y + 0.8)}" width="${u(3)}" height="${u(b.h - 1.6)}" rx="${u(0.3)}"/>` +
+         `<use href="#bicycle" transform="translate(${u(b.x + 1.9)} ${u(b.y + b.h / 2)}) scale(.75)"/>`;
   }
   const B = BUILDING, bx = u(B.x + B.w / 2), by = u(B.y + B.h / 2);
   h += `<rect class="bld" x="${u(B.x)}" y="${u(B.y)}" width="${u(B.w)}" height="${u(B.h)}"/>
@@ -726,7 +744,7 @@ function draw() {
   for (const b of bays) {
     const c = carAt.get(b.id);
     h += `<g class="bay${b.unmarked ? ' unmarked' : ''}${b.ev ? ' ev' : ''}" data-id="${b.id}"><rect x="${u(b.x)}" y="${u(b.y)}" width="${u(b.w)}" height="${u(b.h)}"/>`;
-    if (b.ev) h += `<use href="#bolt" class="ev-bolt" transform="translate(${u(b.cx - b.fx * 1.6)} ${u(b.cy - b.fy * 1.6)})"/>`;   // painted at the inner end
+    if (b.ev) h += `<use href="#ev-mark" transform="translate(${u(b.cx - b.fx * 1.5)} ${u(b.cy - b.fy * 1.5)}) rotate(${b.rot - 90}) scale(.85)"/>`;
     if (c) {
       h += `<use href="#car" fill="${c.hex}" transform="translate(${u(b.cx)} ${u(b.cy)}) rotate(${b.rot}) scale(${c.sx} ${c.sy})"/>`;
       const px = b.cx - b.fx * 0.6, py = b.cy - b.fy * 0.6;       // plate: nudged to the inner end
@@ -739,6 +757,7 @@ function draw() {
          `<text class="bay-id2" x="${u(b.cx + b.fx * 1.8)}" y="${u(b.cy + b.fy * 1.8)}">${b.id}</text></g>`;
   }
   h += `</g><g>`;
+  for (const [a, b] of HATCHES) h += hatch(bayById.get(a), bayById.get(b));
 
   // row letters at both ends of every row
   for (const dr of ROWS) {
